@@ -11,6 +11,9 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from model import Discriminator, Generator, initialize_weights
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+
 
 
 # Hyperparameters etc.
