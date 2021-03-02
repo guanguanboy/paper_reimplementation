@@ -29,6 +29,7 @@ FEATURE_GEN = 64
 
 transforms = transforms.Compose([
     transforms.Resize(IMAGE_SIZE),
+    transforms.CenterCrop(IMAGE_SIZE), # THIS LINE IS ADDED
     transforms.ToTensor(),
     transforms.Normalize(
         [0.5 for _ in range(CHANELS_IMG)], [0.5 for _ in range(CHANELS_IMG)]
