@@ -5,11 +5,12 @@ import torch
 import torch.nn as nn
 
 class Discriminator(nn.Module):
-    def __init__(self, channels_img, features_d):
+    def __init__(self, channels_img, features_d, num_classes, img_size):
         super(Discriminator, self).__init__()
+        self.img_szie = img_size
         self.disc = nn.Sequential(
             #Input: N x channels_img x 64 x 64
-            nn.Conv2d(channels_img,
+            nn.Conv2d(channels_img+1,
                       features_d, kernel_size=4, stride=2, padding=1), #32 x 32
             nn.LeakyReLU(0.2),
             self._block(features_d, features_d*2, 4, 2, 1), #16 x 16
@@ -17,6 +18,8 @@ class Discriminator(nn.Module):
             self._block(features_d*4, features_d*8, 4, 2, 1), # 4 x 4
             nn.Conv2d(features_d*8, 1, kernel_size=4, stride=2, padding=0), #1*1
         )
+        self.embed = nn.Embedding(num_classes, img_size*img_size)
+
     def _block(self, in_channels, out_channels, kernel_size, stride, padding):
         return nn.Sequential(
             nn.Conv2d(
@@ -30,21 +33,25 @@ class Discriminator(nn.Module):
             nn.InstanceNorm2d(out_channels, affine=True),
             nn.LeakyReLU(0.2)
         )
-    def forward(self, x):
+    def forward(self, x, labels):
+        embedding = self.embed(labels).view(labels.shape[0], 1, self.img_szie, self.img_szie)
+        x = torch.cat([x, embedding], dim=1)
         return self.disc(x)
 
 class Generator(nn.Module):
-    def __init__(self, z_dim, channels_img, features_g):
+    def __init__(self, z_dim, channels_img, features_g, num_classes, img_size, embed_size):
         super(Generator, self).__init__()
+        self.img_size = img_size
         self.net = nn.Sequential(
             #Input: N x z_dim x 1 x 1
-            self._block(z_dim, features_g*16, 4, 1, 0), # N x f_g*16 x 4 x 4
+            self._block(z_dim + embed_size, features_g*16, 4, 1, 0), # N x f_g*16 x 4 x 4
             self._block(features_g*16, features_g*8, 4, 2, 1), # N x f_g*8 x 8 x 8
             self._block(features_g*8, features_g*4, 4, 2, 1), # N x f_g * 4 x 16 x 16,
             self._block(features_g*4, features_g*2, 4, 2, 1), # N x f_g * 2 x 32 x 32,
             nn.ConvTranspose2d(features_g*2, channels_img, kernel_size=4, stride=2, padding=1),
             nn.Tanh() # [-1, 1]
         )
+        self.embed = nn.Embedding(num_classes, embed_size)
 
     def _block(self, in_channels, out_channels, kernel_size, stride, padding):
         return nn.Sequential(
@@ -53,7 +60,12 @@ class Generator(nn.Module):
             nn.ReLU()
         )
 
-    def forward(self, x):
+    def forward(self, x, labels):
+        #latent vector z: N x noise_dim x 1 x 1
+        embedding = self.embed(labels).unsqueeze(2).unsqueeze(3)
+        #print("x.shape", x.shape)
+        #print("embedding.shape", embedding.shape)
+        x = torch.cat( (x, embedding), dim=1)
         return self.net(x)
 
 def initialize_weights(model):
