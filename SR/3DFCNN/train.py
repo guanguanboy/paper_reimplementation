@@ -60,8 +60,9 @@ def train():
                       % (epoch + 1, NUM_EPOCHS, batch_idx,
                          len(dataloader), cost.item()))
         if args.save:
-            file_name = os.path.join(args.save, 'd3fcnn.pt')
-            torch.save(obj=model.state_dict(), f=file_name)
+            if epoch % 10 == 0:
+                file_name = os.path.join(args.save, 'd3fcnn_%d.pt' % (epoch+10))
+                torch.save(obj=model.state_dict(), f=file_name)
 
 
 
@@ -80,7 +81,7 @@ if __name__ == '__main__':
                         nargs=1,
                         help="Training data directory")
     parser.add_argument('-E', '--epoch',
-                        default=1,
+                        default=200,
                         dest='n_epoch',
                         type=int,
                         nargs=1,
