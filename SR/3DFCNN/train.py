@@ -14,7 +14,7 @@ import torch.nn.functional as F
 #os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
 NUM_EPOCHS = 10
-BATCH_SIZE = 16
+BATCH_SIZE = 128
 LEARNING_RATE = 0.00005
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 

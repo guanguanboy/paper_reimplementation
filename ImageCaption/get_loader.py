@@ -16,7 +16,7 @@ import torchvision.transforms as transforms
 # Note that loading the image is very easy compared to the text!
 
 # Download with: python -m spacy download en
-spacy_eng = spacy.load("en")
+spacy_eng = spacy.load("en_core_web_sm")
 
 
 class Vocabulary:
@@ -134,9 +134,10 @@ if __name__ == "__main__":
     )
 
     loader, dataset = get_loader(
-        "flickr8k/images/", "flickr8k/captions.txt", transform=transform
+        "/mnt/liguanlin/DataSets/ImageCaptionDatasets/flickr8k/images", "/mnt/liguanlin/DataSets/ImageCaptionDatasets/flickr8k/captions.txt", transform=transform
     )
+    
+    #for idx, (imgs, captions) in enumerate(loader):
+    #    print(imgs.shape)
+    #    print(captions.shape)
 
-    for idx, (imgs, captions) in enumerate(loader):
-        print(imgs.shape)
-        print(captions.shape)
