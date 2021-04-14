@@ -14,6 +14,8 @@ class CNNBlock(nn.Module):
         return self.conv(x)
 
 class Discriminator(nn.Module):
-    def __init__(self, in_channels=3, features=[]) 
+    def __init__(self, in_channels=3, features=[64,128,256,512]): #256-> 30x30 
     #in_channels等于3的原因是，一般来说我们的数据是3通道的RGB图像
+    super().__init__()
+
     
