@@ -37,6 +37,11 @@ def main():
 
             batch_size, height, width, band_num = lowlight.shape
 
+            """"
+                our method traverses all the bands through one-by-one mode,
+                which simultaneously employing spatial–spectral information
+                with spatial and spatial–spectral filters, respectively
+            """
             for i in range(band_num): #遍历每个band去处理
                 single_lowlight_band = lowlight[:,:,:,i]
                 single_label_band = label[:,:,:i]
