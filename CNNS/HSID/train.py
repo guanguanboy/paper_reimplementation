@@ -8,6 +8,8 @@ from tqdm import tqdm
 from utils import get_adjacent_spectral_bands
 from hsidataset import HsiTrainDataset
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
+from helper.helper_utils import init_params, get_summary_writer
 
 #设置超参数
 NUM_EPOCHS =100
@@ -15,6 +17,13 @@ BATCH_SIZE = 128
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 INIT_LEARNING_RATE = 0.01
 K = 24
+display_step = 20
+
+#设置随机种子
+seed = 200
+torch.manual_seed(seed)
+if DEVICE == 'cuda':
+    torch.cuda.manual_seed(seed)
 
 def main():
 
@@ -31,8 +40,19 @@ def main():
     hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE)
     #定义loss 函数
     criterion = nn.MSELoss()
+
+    global tb_writer
+    tb_writer = get_summary_writer(log_dir='logs')
+
+    gen_minibatch_loss_list = []
+    gen_epoch_loss_list = []
+
+    cur_step = 0
+
     for epoch in range(NUM_EPOCHS):
         
+        gen_epoch_loss = 0
+
         net.train()
         for batch_idx, (lowlight, label) in enumerate(train_loader):
             lowlight = lowlight.to(device)
@@ -68,6 +88,30 @@ def main():
                 hsid_optimizer.step() # update parameter
 
                 ## Logging
+                gen_minibatch_loss_list.append(loss.item())
+                gen_epoch_loss += loss.item()
+
+                if cur_step % display_step == 0:
+                    if cur_step > 0:
+                        print(f"Epoch {epoch}: Step {cur_step}: MSE loss: {loss.item()}")
+                    else:
+                        print("Pretrained initial state")
+
+                tb_writer.add_scalar("MSE loss", loss.item(), cur_step)
+
+            #step ++,每一次循环，每一个batch的处理，叫做一个step
+            cur_step += 1
+
+
+        gen_epoch_loss_list.append(gen_epoch_loss)
+        tb_writer.add_scalar("mse epoch loss", gen_epoch_loss, epoch)
+
+        torch.save({
+            'gen': net.state_dict(),
+            'gen_opt': hsid_optimizer.state_dict(),
+        }, f"checkpoints/hsid_{epoch}.pth")
+        tb_writer.close()
+
 
 
 if __name__ == '__main__':
