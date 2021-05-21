@@ -17,7 +17,8 @@ BATCH_SIZE = 128
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 INIT_LEARNING_RATE = 0.01
 K = 24
-display_step = 20
+display_step = 2
+display_band = 20
 
 #设置随机种子
 seed = 200
@@ -65,6 +66,7 @@ def main():
                 which simultaneously employing spatial–spectral information
                 with spatial and spatial–spectral filters, respectively
             """
+            band_loss = 0
             for i in range(band_num): #遍历每个band去处理
                 single_lowlight_band = lowlight[:,:,:,i]
                 single_lowlight_band = single_lowlight_band[:,None]
@@ -88,16 +90,21 @@ def main():
                 hsid_optimizer.step() # update parameter
 
                 ## Logging
-                gen_minibatch_loss_list.append(loss.item())
-                gen_epoch_loss += loss.item()
+                band_loss += loss.item()
 
-                if cur_step % display_step == 0:
-                    if cur_step > 0:
-                        print(f"Epoch {epoch}: Step {cur_step}: MSE loss: {loss.item()}")
-                    else:
-                        print("Pretrained initial state")
+                if i % 20 == 0:
+                    print(f"Epoch {epoch}: Step {cur_step}: bandnum {i}: band MSE loss: {loss.item()}")
 
-                tb_writer.add_scalar("MSE loss", loss.item(), cur_step)
+            gen_minibatch_loss_list.append(band_loss.item())
+            gen_epoch_loss += band_loss.item()
+
+            if cur_step % display_step == 0:
+                if cur_step > 0:
+                    print(f"Epoch {epoch}: Step {cur_step}: MSE loss: {band_loss.item()}")
+                else:
+                    print("Pretrained initial state")
+
+            tb_writer.add_scalar("MSE loss", band_loss.item(), cur_step)
 
             #step ++,每一次循环，每一个batch的处理，叫做一个step
             cur_step += 1

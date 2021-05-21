@@ -32,9 +32,9 @@ def get_adjacent_spectral_bands(hsi_patch, K, current_band):
         output_adjacent_bands = hsi_patch[:, :,:, band_num-K:band_num]
     else:
         output_adjacent_bands[:, :,:, 0:MEDIAN] = hsi_patch[:, :,:, i-MEDIAN:i]
-        print(hsi_patch[:, :,:, i-MEDIAN:i].shape)
+        #print(hsi_patch[:, :,:, i-MEDIAN:i].shape)
         output_adjacent_bands[:, :,:, MEDIAN:K] =  hsi_patch[:, :,:, i+1:i+MEDIAN+1]
-        print(hsi_patch[:, :,:, i+1:i+MEDIAN+1].shape)  
+        #print(hsi_patch[:, :,:, i+1:i+MEDIAN+1].shape)  
     return output_adjacent_bands
 
 
