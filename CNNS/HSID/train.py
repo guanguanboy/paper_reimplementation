@@ -10,10 +10,12 @@ from hsidataset import HsiTrainDataset
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from helper.helper_utils import init_params, get_summary_writer
+import os
 
 #设置超参数
 NUM_EPOCHS =100
 BATCH_SIZE = 128
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 INIT_LEARNING_RATE = 0.01
 K = 24
@@ -35,6 +37,8 @@ def main():
 
     #创建模型
     net = HSID()
+    init_params(net)
+    net = nn.DataParallel(net).to(device)
 
     #创建优化器
     #hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE, betas=(0.9, 0,999))
@@ -95,16 +99,16 @@ def main():
                 if i % 20 == 0:
                     print(f"Epoch {epoch}: Step {cur_step}: bandnum {i}: band MSE loss: {loss.item()}")
 
-            gen_minibatch_loss_list.append(band_loss.item())
-            gen_epoch_loss += band_loss.item()
+            gen_minibatch_loss_list.append(band_loss)
+            gen_epoch_loss += band_loss
 
             if cur_step % display_step == 0:
                 if cur_step > 0:
-                    print(f"Epoch {epoch}: Step {cur_step}: MSE loss: {band_loss.item()}")
+                    print(f"Epoch {epoch}: Step {cur_step}: MSE loss: {band_loss}")
                 else:
                     print("Pretrained initial state")
 
-            tb_writer.add_scalar("MSE loss", band_loss.item(), cur_step)
+            tb_writer.add_scalar("MSE loss", band_loss, cur_step)
 
             #step ++,每一次循环，每一个batch的处理，叫做一个step
             cur_step += 1
