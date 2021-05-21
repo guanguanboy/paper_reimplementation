@@ -14,14 +14,14 @@ i+1到i+MEDIAN（12个band）作为adjacent spectral bands
 """
 MEDIAN = 12
 import numpy as np 
-
+import torch
 """
 current_band #i取值范围 从0开始到band_num-1
 """
 def get_adjacent_spectral_bands(hsi_patch, K, current_band):
     batchsize, height, width, band_num = hsi_patch.shape
 
-    output_adjacent_bands = np.zeros((batchsize, height, width, K))
+    output_adjacent_bands = torch.zeros((batchsize, height, width, K))
     assert(K % 2 == 0)
 
     MEDIAN = K//2
@@ -39,7 +39,7 @@ def get_adjacent_spectral_bands(hsi_patch, K, current_band):
 
 
 if __name__ == "__main__":
-    hsi_patch = np.zeros((128, 20, 20, 191))
+    hsi_patch = torch.zeros((128, 20, 20, 191))
     K = 24
     current_band = 4
 
