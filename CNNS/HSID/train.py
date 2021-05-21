@@ -10,7 +10,7 @@ from hsidataset import HsiTrainDataset
 from torch.utils.data import DataLoader
 
 #设置超参数
-NUM_EPOCHS =1
+NUM_EPOCHS =100
 BATCH_SIZE = 128
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 INIT_LEARNING_RATE = 0.01
