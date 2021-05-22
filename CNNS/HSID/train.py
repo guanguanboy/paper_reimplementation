@@ -14,7 +14,7 @@ import os
 
 #设置超参数
 NUM_EPOCHS =100
-BATCH_SIZE = 128
+BATCH_SIZE = 4096
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 INIT_LEARNING_RATE = 0.01
@@ -96,8 +96,8 @@ def main():
                 ## Logging
                 band_loss += loss.item()
 
-                if i % 20 == 0:
-                    print(f"Epoch {epoch}: Step {cur_step}: bandnum {i}: band MSE loss: {loss.item()}")
+                #if i % 20 == 0:
+                    #print(f"Epoch {epoch}: Step {cur_step}: bandnum {i}: band MSE loss: {loss.item()}")
 
             gen_minibatch_loss_list.append(band_loss)
             gen_epoch_loss += band_loss
@@ -121,7 +121,7 @@ def main():
             'gen': net.state_dict(),
             'gen_opt': hsid_optimizer.state_dict(),
         }, f"checkpoints/hsid_{epoch}.pth")
-        tb_writer.close()
+    tb_writer.close()
 
 
 
