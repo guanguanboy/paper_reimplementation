@@ -31,10 +31,11 @@ class HsiTrainDataset(Dataset):
 
 def run_dataset_test():
     batch_size = 1
-    train_set = HsiTrainDataset('./data/train/')
+    #train_set = HsiTrainDataset('./data/train/')
+    train_set = HsiTrainDataset('./data/test/')
     train_loader = DataLoader(dataset=train_set, batch_size=batch_size, shuffle=True)
     print(next(iter(train_loader))[0].shape)
     print(next(iter(train_loader))[1].shape)
     print(len(train_loader))
 
-run_dataset_test()
+#run_dataset_test()
