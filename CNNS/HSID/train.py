@@ -11,13 +11,14 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from helper.helper_utils import init_params, get_summary_writer
 import os
+from torch.optim.lr_scheduler import MultiStepLR
 
 #设置超参数
 NUM_EPOCHS =100
-BATCH_SIZE = 4096
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
+BATCH_SIZE = 256
+os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-INIT_LEARNING_RATE = 0.01
+INIT_LEARNING_RATE = 0.005
 K = 24
 display_step = 2
 display_band = 20
@@ -43,6 +44,8 @@ def main():
     #创建优化器
     #hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE, betas=(0.9, 0,999))
     hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE)
+    scheduler = MultiStepLR(hsid_optimizer, milestones=[15,30,45], gamma=0.25)
+
     #定义loss 函数
     criterion = nn.MSELoss()
 
@@ -54,16 +57,21 @@ def main():
 
     cur_step = 0
 
+    first_batch = next(iter(train_loader))
+
     for epoch in range(NUM_EPOCHS):
-        
+        scheduler.step(epoch)
+        print("Decaying learning rate to %g" % scheduler.get_lr()[0])
         gen_epoch_loss = 0
 
         net.train()
-        for batch_idx, (lowlight, label) in enumerate(train_loader):
-            lowlight = lowlight.to(device)
+        #for batch_idx, (noisy, label) in enumerate([first_batch] * 300):
+        for batch_idx, (noisy, label) in enumerate(train_loader):
+
+            noisy = noisy.to(device)
             label = label.to(device)
 
-            batch_size, height, width, band_num = lowlight.shape
+            batch_size, height, width, band_num = noisy.shape
 
             """"
                 our method traverses all the bands through one-by-one mode,
@@ -72,22 +80,22 @@ def main():
             """
             band_loss = 0
             for i in range(band_num): #遍历每个band去处理
-                single_lowlight_band = lowlight[:,:,:,i]
-                single_lowlight_band = single_lowlight_band[:,None]
+                single_noisy_band = noisy[:,:,:,i]
+                single_noisy_band_cloned = single_noisy_band[:,None].clone()
                 single_label_band = label[:,:,:,i]
-                single_label_band = single_label_band[:,None]
+                single_label_band_cloned = single_label_band[:,None].clone()
 
-                adj_spectral_bands = get_adjacent_spectral_bands(lowlight, K, i)
+                adj_spectral_bands = get_adjacent_spectral_bands(noisy, K, i)
                 #print('adj_spectral_bands.shape =', adj_spectral_bands.shape)
                 #print(type(adj_spectral_bands))
-                adj_spectral_bands = torch.transpose(adj_spectral_bands,3,1)
+                adj_spectral_bands_transposed = torch.transpose(adj_spectral_bands,3,1).clone()
                 #print('transposed adj_spectral_bands.shape =', adj_spectral_bands.shape)
                 #print(type(adj_spectral_bands))
 
-                fake_redidual = net(single_lowlight_band, adj_spectral_bands)
+                denoised_img = net(single_noisy_band_cloned, adj_spectral_bands_transposed)
 
-                true_residual = single_label_band - single_lowlight_band
-                loss = criterion(true_residual, fake_redidual)
+                
+                loss = criterion(single_label_band_cloned, denoised_img)
                 
                 hsid_optimizer.zero_grad()
                 loss.backward() # calcu gradient
@@ -96,8 +104,8 @@ def main():
                 ## Logging
                 band_loss += loss.item()
 
-                #if i % 20 == 0:
-                    #print(f"Epoch {epoch}: Step {cur_step}: bandnum {i}: band MSE loss: {loss.item()}")
+                if i % 20 == 0:
+                    print(f"Epoch {epoch}: Step {cur_step}: bandnum {i}: band MSE loss: {loss.item()}")
 
             gen_minibatch_loss_list.append(band_loss)
             gen_epoch_loss += band_loss

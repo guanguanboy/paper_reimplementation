@@ -37,6 +37,8 @@ class HSID(nn.Module):
         self.conv10 = nn.Conv2d(60, 1, kernel_size=3, stride=1, padding=1)
 
     def forward(self, x_spatial, x_spectral):
+
+        x_spectral = x_spectral.squeeze(1)
         x_spatial_feature_3 = self.spatial_feature_3(x_spatial)
         x_spatial_feature_5 = self.spatial_feature_5(x_spatial)
         x_spatial_feature_7 = self.spatial_feature_7(x_spatial)
