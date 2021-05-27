@@ -8,23 +8,27 @@ from hsidataset import HsiTrainDataset
 from torch.utils.data import DataLoader
 import tqdm
 from utils import get_adjacent_spectral_bands
+from metrics import PSNR, SSIM, SAM
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 #超参数定义
-K = 24
+K = 36
 
 def predict():
 
     #加载模型
-    hsid = HSID()
+    hsid = HSID(36)
     hsid = nn.DataParallel(hsid).to(DEVICE)
 
-    hsid.load_state_dict(torch.load('./checkpoints/hsid_0.pth')['gen'])
+    hsid.load_state_dict(torch.load('./checkpoints/hsid_44.pth')['gen'])
 
     #加载数据
-    test_data_dir = './data/test/'
+    test=np.load('./data/origin/test_washington.npy')
+    #test=test.transpose((2,0,1)) #将通道维放在最前面：191*1280*307
+
+    test_data_dir = './data/test_level25/'
     test_set = HsiTrainDataset(test_data_dir)
 
     test_dataloader = DataLoader(test_set, batch_size=1, shuffle=False)
@@ -59,11 +63,9 @@ def predict():
                 current_noisy_band = noisy[:,:,:,i]
                 current_noisy_band = current_noisy_band[:,None]
 
-                adj_spectral_bands = get_adjacent_spectral_bands(noisy, K, i)
-                adj_spectral_bands = torch.transpose(adj_spectral_bands,3,1)                
-                residual = hsid(current_noisy_band, adj_spectral_bands)
-
-                denoised_band = residual + current_noisy_band
+                adj_spectral_bands = get_adjacent_spectral_bands(noisy, K, i)# shape: batch_size, width, height, band_num
+                adj_spectral_bands = torch.transpose(adj_spectral_bands,3,1)#交换第一维和第三维 ，shape: batch_size, band_num, height, width               
+                denoised_band = hsid(current_noisy_band, adj_spectral_bands)
 
                 denoised_band_numpy = denoised_band.cpu().numpy().astype(np.float32)
                 denoised_band_numpy = np.squeeze(denoised_band_numpy)
@@ -73,11 +75,72 @@ def predict():
     #mdict是python字典类型，value值需要是一个numpy数组
     scio.savemat(test_result_output_path + 'result.mat', {'denoised': denoised_hsi})
 
+    psnr = PSNR(denoised_hsi, test)
+    ssim = SSIM(denoised_hsi, test)
+    sam = SAM(denoised_hsi, test)
     #计算pnsr和ssim
+    print("=====averPSNR:{:.3f}=====averSSIM:{:.4f}=====averSAM:{:.3f}".format(psnr, ssim, sam)) 
 
+from hsidataset import HsiCubicTestDataset
 
+def predict_cubic():
+    #加载模型
+    hsid = HSID(36)
+    hsid = nn.DataParallel(hsid).to(DEVICE)
 
+    hsid.load_state_dict(torch.load('./checkpoints/hsid_70.pth')['gen'])
+
+    #加载数据
+    batch_size = 1
+    test_data_dir = './data/test_cubic/'
+    test_set = HsiCubicTestDataset(test_data_dir)
+    test_dataloader = DataLoader(dataset=test_set, batch_size=batch_size, shuffle=False)
+
+    #指定结果输出路径
+    test_result_output_path = './data/testresult/'
+    if not os.path.exists(test_result_output_path):
+        os.makedirs(test_result_output_path)
+
+    #逐个通道的去噪
+    """
+    分配一个numpy数组，存储去噪后的结果
+    遍历所有通道，
+    对于每个通道，通过get_adjacent_spectral_bands获取其相邻的K个通道
+    调用hsid进行预测
+    将预测到的residual和输入的noise加起来，得到输出band
+
+    将去噪后的结果保存成mat结构
+    """
+    batch_size, channel, width, height = next(iter(test_dataloader))[0].shape
+    
+    band_num = len(test_dataloader)
+    denoised_hsi = np.zeros((width, height, band_num))
+
+    for batch_idx, (noisy, cubic, label) in enumerate(test_dataloader):
+        noisy = noisy.type(torch.FloatTensor)
+        label = label.type(torch.FloatTensor)
+        cubic = cubic.type(torch.FloatTensor)
+
+        batch_size, width, height, band_num = noisy.shape
+
+        noisy = noisy.to(DEVICE)
+        cubic = cubic.to(DEVICE)
+
+        with torch.no_grad():
+                       
+            denoised_band = hsid(noisy, cubic)
+
+            denoised_band_numpy = denoised_band.cpu().numpy().astype(np.float32)
+            denoised_band_numpy = np.squeeze(denoised_band_numpy)
+
+            denoised_hsi[:,:,batch_idx] = denoised_band_numpy
+
+    #mdict是python字典类型，value值需要是一个numpy数组
+    scio.savemat(test_result_output_path + 'result.mat', {'denoised': denoised_hsi})
+
+    #计算pnsr和ssim    
 
 
 if __name__=="__main__":
     predict()
+    #predict_cubic()

@@ -8,8 +8,9 @@ from hsidataset import HsiTrainDataset
 from torch.utils.data import DataLoader
 import tqdm
 from utils import get_adjacent_spectral_bands
+from model_origin import HSIDCNN
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 #超参数定义
@@ -18,10 +19,10 @@ K = 36
 def predict():
 
     #加载模型
-    hsid = HSID(36)
+    hsid = HSIDCNN()
     #hsid = nn.DataParallel(hsid).to(DEVICE)
 
-    hsid.load_state_dict(torch.load('./PNMN_120SIGMA025.pth'))
+    hsid.load_state_dict(torch.load('./PNMN_064SIGMA025.pth'))
 
     #加载数据
     test_data_dir = './data/test/'
@@ -60,7 +61,7 @@ def predict():
                 current_noisy_band = current_noisy_band[:,None]
 
                 adj_spectral_bands = get_adjacent_spectral_bands(noisy, K, i)
-                adj_spectral_bands = torch.transpose(adj_spectral_bands,3,1)   
+                adj_spectral_bands = torch.transpose(adj_spectral_bands,3,1) #将通道数置换到第二维  
                 adj_spectral_bands_unsqueezed = adj_spectral_bands.unsqueeze(1)
 
                 denoised_band = hsid(current_noisy_band, adj_spectral_bands_unsqueezed)
@@ -68,7 +69,7 @@ def predict():
                 denoised_band_numpy = denoised_band.cpu().numpy().astype(np.float32)
                 denoised_band_numpy = np.squeeze(denoised_band_numpy)
 
-                denoised_hsi[:,:,i] = denoised_band_numpy
+                denoised_hsi[:,:,i] += denoised_band_numpy
 
     #mdict是python字典类型，value值需要是一个numpy数组
     scio.savemat(test_result_output_path + 'result.mat', {'denoised': denoised_hsi})

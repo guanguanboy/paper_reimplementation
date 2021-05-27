@@ -14,25 +14,37 @@ from datas import data_aug
 #from models import  PNMN
 import scipy.io as scio
 from model import HSID
+from model_origin import HSIDCNN
 
-torch.cuda.set_device(0)
+torch.cuda.set_device(2)
 LEARNING_RATE=0.001
-EPOCH=120
+EPOCH=65
 SIGMA=25
 BATCH_SIZE=128
 
 #train datas
 
-train=scio.loadmat('./data/wdc.mat')['wdc']
+#train=scio.loadmat('./data/origin/wdc_normalized.mat')['wdc_normalized'] #原始大小：1280*307*191
+
+
+#train=train.transpose((2,1,0)) #将通道维放在最前面：191*1280*307
+
+#test datas
+#test=np.load('train_washington8.npy')
+#test = scio.loadmat('./data/origin/GT_crop.mat')['temp']
+
+#train datas
+
+train=np.load('train_washington8.npy')
 
 
 train=train.transpose((2,1,0))
 
 #test datas
-#test=np.load('train_washington8.npy')
-test = scio.loadmat('./data/origin/GT_crop.mat')['temp']
+test=np.load('train_washington8.npy')
 
-test=test.transpose((2,1,0))
+#test=test.transpose((2,1,0))
+test=test.transpose((2,1,0)) #将通道维放在最前面
 root='./'
 
 #define denoising model
@@ -55,7 +67,7 @@ def loss_fuction(x,y):
     loss1=MSEloss(x,y)
     return loss1
 
-net =  HSID(36)
+net =  HSIDCNN()
 net.cuda()
 y=torch.randn(12,1,36,20,20).cuda()
 x=torch.randn(12,1,20,20).cuda()
@@ -71,8 +83,7 @@ if __name__ == '__main__':
     scheduler = MultiStepLR(optimizer, milestones=[15,30,45], gamma=0.25)
 
     for epoch in range(EPOCH):#为什么每次epoch都回增加内存占用？
-        scheduler.step(epoch)
-        print("Decaying learning rate to %g" % scheduler.get_lr()[0])
+
         for tex in range(1):
             mode=np.random.randint(0,4)
             net.train()
@@ -80,18 +91,8 @@ if __name__ == '__main__':
             #train2 = data_aug(train2, mode)
             #train3=data_aug(train3,mode)
 
-
-
             channels= 191  # 191 channels
-
-
-
             data_patches, data_cubic_patches = datagenerator(train, channels)
-
-
-
-
-
 
             data_patches = torch.from_numpy(data_patches.transpose((0, 3, 1, 2, )))
             data_cubic_patches = torch.from_numpy(data_cubic_patches.transpose((0, 4, 1, 2, 3)))
@@ -119,10 +120,8 @@ if __name__ == '__main__':
             elapsed_time = time.time() - start_time
             log('epcoh = %4d , loss = %4.4f , time = %4.2f s' % (epoch + 1, epoch_loss / step, elapsed_time))
 
-
-
-
-
+        scheduler.step()
+        print("Decaying learning rate to %g" % scheduler.get_lr()[0])
 
         start_time = time.time()
         net.eval()
@@ -141,10 +140,10 @@ if __name__ == '__main__':
             epoch_loss += loss.item()
 
             if step % 10 == 0:
-                print('%4d %4d / %4d loss = %2.4f' % (
+                print('%4d %4d / %4d test loss = %2.4f' % (
                     epoch + 1, step, data_patches.size(0) // BATCH_SIZE, loss.item() / BATCH_SIZE))
 
         elapsed_time = time.time() - start_time
-        log('epcoh = %4d , loss = %4.4f , time = %4.2f s' % (epoch + 1, epoch_loss / step, elapsed_time))
+        log('epcoh = %4d , test loss = %4.4f , time = %4.2f s' % (epoch + 1, epoch_loss / step, elapsed_time))
         torch.save(net.state_dict(), 'PNMN_%03dSIGMA%03d.pth' % (epoch + 1, SIGMA))
 

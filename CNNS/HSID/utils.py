@@ -39,7 +39,7 @@ def get_adjacent_spectral_bands(hsi_patch, K, current_band):
 
 
 if __name__ == "__main__":
-    hsi_patch = torch.zeros((128, 20, 20, 191))
+    hsi_patch = torch.zeros((128, 40, 20, 191))
     K = 24
     current_band = 4
 
