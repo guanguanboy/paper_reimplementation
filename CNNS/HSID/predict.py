@@ -152,8 +152,8 @@ def predict_residual():
 
     #加载模型
     hsid = HSID(36)
-    hsid = nn.DataParallel(hsid).to(DEVICE)
-
+    #hsid = nn.DataParallel(hsid).to(DEVICE)
+    hsid = hsid.to(DEVICE)
     hsid.load_state_dict(torch.load('./checkpoints/hsid_99.pth')['gen'])
 
     #加载数据
@@ -196,7 +196,8 @@ def predict_residual():
                 current_noisy_band = current_noisy_band[:,None]
 
                 adj_spectral_bands = get_adjacent_spectral_bands(noisy, K, i)# shape: batch_size, width, height, band_num
-                adj_spectral_bands = torch.transpose(adj_spectral_bands,3,1)#交换第一维和第三维 ，shape: batch_size, band_num, height, width               
+                adj_spectral_bands = adj_spectral_bands.permute(0, 3,1,2)#交换第一维和第三维 ，shape: batch_size, band_num, height, width               
+                adj_spectral_bands = adj_spectral_bands.to(DEVICE)
                 residual = hsid(current_noisy_band, adj_spectral_bands)
                 denoised_band = current_noisy_band + residual
 

@@ -61,7 +61,8 @@ def predict():
                 current_noisy_band = current_noisy_band[:,None]
 
                 adj_spectral_bands = get_adjacent_spectral_bands(noisy, K, i)
-                adj_spectral_bands = torch.transpose(adj_spectral_bands,3,1) #将通道数置换到第二维  
+                #adj_spectral_bands = torch.transpose(adj_spectral_bands,3,1) #将通道数置换到第二维  
+                adj_spectral_bands = adj_spectral_bands.permute(0, 3,1,2)                
                 adj_spectral_bands_unsqueezed = adj_spectral_bands.unsqueeze(1)
 
                 denoised_band = hsid(current_noisy_band, adj_spectral_bands_unsqueezed)
