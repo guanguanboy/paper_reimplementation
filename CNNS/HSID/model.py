@@ -89,7 +89,7 @@ class HSID(nn.Module):
 
         output = self.conv10(feature_conv_3_5_7_9)
 
-        return output + x_spatial
+        return output # + x_spatial
 
 def test():
     net = HSID(24)
