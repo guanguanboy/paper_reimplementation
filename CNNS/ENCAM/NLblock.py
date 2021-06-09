@@ -6,6 +6,9 @@ from torch.nn import functional as F
 
 """
 实现的是NCU前面的几个1x1的卷积
+
+_NonLocalBlockND 实现的是https://zhuanlan.zhihu.com/p/102984842 中的non-local block，
+与上面连接中的代码相同，实现的是embedding gaussian
 """
 class _NonLocalBlockND(nn.Module):
     def __init__(self, in_channels=4, inter_channels=None, dimension=3, sub_sample=True, bn_layer=False):

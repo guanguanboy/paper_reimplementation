@@ -13,7 +13,8 @@ class RegionNONLocalBlock(nn.Module):
     def forward(self, x):
         batch_size, _, height, width = x.size()
 
-        input_row_list = x.chunk(self.grid[0], dim=2)
+        #self.grid[0]表示分割的块数，dim表示沿着dimension along which to split the tensor（沿着哪个轴分块）
+        input_row_list = x.chunk(self.grid[0], dim=2) #chunk方法可以对张量分块，返回一个张量列表：
 
         output_row_list = []
         for i, row in enumerate(input_row_list):
@@ -32,3 +33,19 @@ class RegionNONLocalBlock(nn.Module):
         output = torch.cat(output_row_list, dim=2)
         return output
 
+if __name__ == '__main__':
+    from torch.autograd import Variable
+    import torch
+
+    sub_sample = True
+    bn_layer = True
+
+    # img = Variable(torch.zeros(2, 3, 20))
+    # net = NONLocalBlock1D(3, sub_sample=sub_sample, bn_layer=bn_layer)
+    # out = net(img)
+    # print(out.size())
+    #
+    img = Variable(torch.zeros(2, 3, 20, 20))
+    net = RegionNONLocalBlock(3)
+    out = net(img)
+    print(out.size())

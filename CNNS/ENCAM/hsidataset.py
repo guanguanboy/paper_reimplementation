@@ -76,6 +76,24 @@ def run_cubic_test_dataset():
     print(next(iter(train_loader))[1].shape)
     print(len(train_loader))
 
+class HsiLowlightTestDataset(Dataset):
+    def __init__(self, dataset_dir):
+        super(HsiLowlightTestDataset, self).__init__()
+        self.image_filenames = [join(dataset_dir, x) for x in listdir(dataset_dir) if is_image_file(x)]
+
+    def __getitem__(self, index):
+        mat = scio.loadmat(self.image_filenames[index], verify_compressed_data_integrity=False)
+        noisy = mat['lowlight'].astype(np.float32)
+        label = mat['label'].astype(np.float32)
+
+        # 增加一个维度，因为HSID模型处理的是四维tensor，因此这里不需要另外增加一个维度
+        #noisy_exp = np.expand_dims(noisy, axis=0)
+        #label_exp = np.expand_dims(label, axis=0)
+
+        return torch.from_numpy(noisy), torch.from_numpy(label)
+
+    def __len__(self):
+        return len(self.image_filenames)
 
 if __name__ == '__main__':
     run_cubic_train_dataset()

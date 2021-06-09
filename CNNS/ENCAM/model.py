@@ -4,6 +4,7 @@ import numpy as np
 import torch.nn.functional as F
 import torch.nn.init as init
 from region_nl import RegionNONLocalBlock
+from NLblock import NONLocalBlock2D
 
 torch.cuda.set_device(0)
 class ChannelAttention(nn.Module):
@@ -137,7 +138,7 @@ class ENCAM(nn.Module):
         self.f3d_1 = nn.Conv3d(1, 16, (30, 3, 3), 1, (0, 1, 1))
         self.f3d_2 = nn.Conv3d(1, 16, (30, 7, 7), 1, (0, 3, 3))
 
-        self.NCB_1 = NCB(channels, channels, grid=[6, 6]) #grid 用于指定non-local的小块的大小
+        self.NCB_1 = NCB(channels, channels, grid=[6, 6]) #grid 用于指定non-local的分块的数量
         self.NCB_2 = NCB(channels, channels, grid=[4, 4])
         self.NCB_3 = NCB(channels, channels, grid=[2, 2])
         self.NCB_4 = NCB(channels, channels, grid=[2, 2])
