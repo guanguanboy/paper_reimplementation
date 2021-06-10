@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 import os
-from model import HSID
+from model import HSID,HSIDNoLocal
 import scipy.io as scio
 import numpy as np
 from hsidataset import HsiTrainDataset,HsiLowlightTestDataset
@@ -10,7 +10,7 @@ import tqdm
 from utils import get_adjacent_spectral_bands
 from metrics import PSNR, SSIM, SAM
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 #DEVICE = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 #超参数定义
@@ -218,7 +218,8 @@ def predict_residual():
 def predict_lowlight_residual():
 
     #加载模型
-    hsid = HSID(36)
+    #hsid = HSID(36)
+    hsid = HSIDNoLocal(36)
     #hsid = nn.DataParallel(hsid).to(DEVICE)
     #device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 

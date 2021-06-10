@@ -2,7 +2,7 @@ from matplotlib.pyplot import imshow
 import torch
 import torch.nn as nn
 
-from model import HSID
+from model import HSID,HSIDNoLocal,HSIDCA
 import torch.optim as optim
 from torchvision import transforms, datasets
 from tqdm import tqdm
@@ -431,7 +431,7 @@ def train_model_residual_lowlight():
     denoised_hsi = np.zeros((width, height, band_num))
 
     #创建模型
-    net = HSID(K)
+    net = HSIDCA(K)
     init_params(net)
     #net = nn.DataParallel(net).to(device)
     net = net.to(device)
@@ -497,7 +497,7 @@ def train_model_residual_lowlight():
 
         #scheduler.step()
         #print("Decaying learning rate to %g" % scheduler.get_last_lr()[0])
-
+ 
         torch.save({
             'gen': net.state_dict(),
             'gen_opt': hsid_optimizer.state_dict(),
