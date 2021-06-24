@@ -460,7 +460,7 @@ def create_denseModel():
 def create_denoisedenseModel():
     # `num_channels`为当前的通道数
     num_channels, growth_rate = 60, 20
-    num_convs_in_dense_blocks = [3, 3]
+    num_convs_in_dense_blocks = [3, 3] #添加了两个dense_block
     blks = []
     for i, num_convs in enumerate(num_convs_in_dense_blocks):
         blks.append(DenseBlock(num_convs, num_channels, growth_rate))

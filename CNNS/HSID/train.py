@@ -21,12 +21,13 @@ from hsidataset import HsiCubicTestDataset,HsiCubicLowlightTestDataset
 import scipy.io as scio
 from losses import EdgeLoss
 from tvloss import TVLoss
+from warmup_scheduler import GradualWarmupScheduler
 
 #设置超参数
 NUM_EPOCHS =100
 BATCH_SIZE = 128
 #os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 INIT_LEARNING_RATE = 0.001
 K = 36
 display_step = 20
@@ -35,7 +36,7 @@ display_band = 20
 #设置随机种子
 seed = 200
 torch.manual_seed(seed) #在CPU上设置随机种子
-if DEVICE == 'cuda':
+if DEVICE == 'cuda:1':
     torch.cuda.manual_seed(seed) #在当前GPU上设置随机种子
     torch.cuda.manual_seed_all(seed)#为所有GPU设置随机种子
 
@@ -592,10 +593,19 @@ def train_model_residual_lowlight_twostage():
     #net = nn.DataParallel(net).to(device)
     net = net.to(device)
 
+    num_epoch = 120
+    print('epoch count == ', num_epoch)
+
     #创建优化器
     #hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE, betas=(0.9, 0,999))
     hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE)
-    scheduler = MultiStepLR(hsid_optimizer, milestones=[40,60,80,100], gamma=0.1)
+    
+    #Scheduler
+    #scheduler = MultiStepLR(hsid_optimizer, milestones=[40,60,80,100], gamma=0.1)
+    warmup_epochs = 3
+    scheduler_cosine = optim.lr_scheduler.CosineAnnealingLR(hsid_optimizer, num_epoch-warmup_epochs+40, eta_min=1e-6)
+    scheduler = GradualWarmupScheduler(hsid_optimizer, multiplier=1, total_epoch=warmup_epochs, after_scheduler=scheduler_cosine)
+    #scheduler.step()
 
     #定义loss 函数
     #criterion = nn.MSELoss()
@@ -613,11 +623,12 @@ def train_model_residual_lowlight_twostage():
     best_epoch = 0
     best_iter = 0
 
-    num_epoch = 120
-    print('epoch count == ', num_epoch)
+
     for epoch in range(num_epoch):
         scheduler.step()
-        print(epoch, 'lr={:.6f}'.format(scheduler.get_last_lr()[0]))
+        #print(epoch, 'lr={:.6f}'.format(scheduler.get_last_lr()[0]))
+        print('epoch = ', epoch, 'lr={:.6f}'.format(scheduler.get_lr()[0]))
+        print(scheduler.get_lr())
         gen_epoch_loss = 0
 
         net.train()

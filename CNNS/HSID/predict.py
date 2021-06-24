@@ -300,7 +300,7 @@ def predict_lowlight_residual_two_stage():
     #device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
     hsid = hsid.to(DEVICE)
-    hsid.load_state_dict(torch.load('./checkpoints/two_stage_hsid_dense_117.pth', map_location='cuda:0')['gen'])
+    hsid.load_state_dict(torch.load('./checkpoints/two_stage_hsid_dense_best.pth', map_location='cuda:0')['gen'])
 
     #加载数据
     mat_src_path = './data/test_lowlight/origin/soup_bigcorn_orange_1ms.mat'
