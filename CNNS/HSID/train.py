@@ -26,7 +26,7 @@ from tvloss import TVLoss
 NUM_EPOCHS =100
 BATCH_SIZE = 128
 #os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
-DEVICE = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 INIT_LEARNING_RATE = 0.001
 K = 36
 display_step = 20
@@ -34,9 +34,10 @@ display_band = 20
 
 #设置随机种子
 seed = 200
-torch.manual_seed(seed)
+torch.manual_seed(seed) #在CPU上设置随机种子
 if DEVICE == 'cuda':
-    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed(seed) #在当前GPU上设置随机种子
+    torch.cuda.manual_seed_all(seed)#为所有GPU设置随机种子
 
 class sum_squared_error(_Loss):  # PyTorch 0.4.1
     """
@@ -72,6 +73,7 @@ def loss_function_with_tvloss(x,y):
 
     return loss1 + loss2
 
+from model import HSID_1x3
 def main():
 
     device = DEVICE
@@ -80,7 +82,7 @@ def main():
     train_loader = DataLoader(dataset=train_set, batch_size=BATCH_SIZE, shuffle=True)
 
     #创建模型
-    net = HSID(K)
+    net = HSID_1x3(K)
     init_params(net)
     net = nn.DataParallel(net).to(device)
 
@@ -173,7 +175,7 @@ def main():
         torch.save({
             'gen': net.state_dict(),
             'gen_opt': hsid_optimizer.state_dict(),
-        }, f"checkpoints/hsid_{epoch}.pth")
+        }, f"checkpoints/hsid_1x3{epoch}.pth")
     tb_writer.close()
 
 
@@ -194,7 +196,7 @@ def train_model():
     test_dataloader = DataLoader(test_set, batch_size=1, shuffle=False)
 
     #创建模型
-    net = HSID(K)
+    net = HSID_1x3(K)
     init_params(net)
     net = nn.DataParallel(net).to(device)
 
@@ -425,6 +427,8 @@ def train_model_residual():
 
     tb_writer.close()
 
+from model_refactored import HSIDRefactored,HSIDInception,HSIDInceptionV2,HSIDInceptionV3
+
 def train_model_residual_lowlight():
 
     device = DEVICE
@@ -450,7 +454,7 @@ def train_model_residual_lowlight():
     denoised_hsi = np.zeros((width, height, band_num))
 
     #创建模型
-    net = HSID(K)
+    net = HSIDInceptionV3(K)
     init_params(net)
     #net = nn.DataParallel(net).to(device)
     net = net.to(device)
@@ -492,7 +496,7 @@ def train_model_residual_lowlight():
             #loss = loss_fuction(denoised_img, label)
 
             residual = net(noisy, cubic)
-            loss = loss_fuction_with_edge(residual, label-noisy)    
+            loss = loss_function_with_tvloss(residual, label-noisy)    
 
             loss.backward() # calcu gradient
             hsid_optimizer.step() # update parameter
@@ -520,7 +524,7 @@ def train_model_residual_lowlight():
         torch.save({
             'gen': net.state_dict(),
             'gen_opt': hsid_optimizer.state_dict(),
-        }, f"checkpoints/hsid_{epoch}.pth")
+        }, f"checkpoints/hsid_inception_v3_{epoch}.pth")
 
         #测试代码
         net.eval()
@@ -556,6 +560,8 @@ def train_model_residual_lowlight():
 
     tb_writer.close()
 
+from model_refactored import HSIDDenseNetTwoStage
+
 def train_model_residual_lowlight_twostage():
 
     device = DEVICE
@@ -581,7 +587,7 @@ def train_model_residual_lowlight_twostage():
     denoised_hsi = np.zeros((width, height, band_num))
 
     #创建模型
-    net = TwoStageHSID(K)
+    net = HSIDDenseNetTwoStage(K)
     init_params(net)
     #net = nn.DataParallel(net).to(device)
     net = net.to(device)
@@ -589,7 +595,7 @@ def train_model_residual_lowlight_twostage():
     #创建优化器
     #hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE, betas=(0.9, 0,999))
     hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE)
-    scheduler = MultiStepLR(hsid_optimizer, milestones=[40,60,80], gamma=0.1)
+    scheduler = MultiStepLR(hsid_optimizer, milestones=[40,60,80,100], gamma=0.1)
 
     #定义loss 函数
     #criterion = nn.MSELoss()
@@ -603,9 +609,13 @@ def train_model_residual_lowlight_twostage():
 
     first_batch = next(iter(train_loader))
 
+    best_psnr = 0
+    best_epoch = 0
+    best_iter = 0
 
-
-    for epoch in range(NUM_EPOCHS):
+    num_epoch = 120
+    print('epoch count == ', num_epoch)
+    for epoch in range(num_epoch):
         scheduler.step()
         print(epoch, 'lr={:.6f}'.format(scheduler.get_last_lr()[0]))
         gen_epoch_loss = 0
@@ -623,7 +633,7 @@ def train_model_residual_lowlight_twostage():
             #loss = loss_fuction(denoised_img, label)
 
             residual, residual_stage2 = net(noisy, cubic)
-            loss = loss_function_with_tvloss(residual, label-noisy) + loss_function_with_tvloss(residual_stage2, label-noisy)   
+            loss = loss_fuction(residual, label-noisy) + loss_fuction(residual_stage2, label-noisy)
 
             loss.backward() # calcu gradient
             hsid_optimizer.step() # update parameter
@@ -651,7 +661,7 @@ def train_model_residual_lowlight_twostage():
         torch.save({
             'gen': net.state_dict(),
             'gen_opt': hsid_optimizer.state_dict(),
-        }, f"checkpoints/two_stage_hsid_{epoch}.pth")
+        }, f"checkpoints/two_stage_hsid_dense_{epoch}.pth")
 
         #测试代码
         net.eval()
@@ -684,6 +694,14 @@ def train_model_residual_lowlight_twostage():
                         'average SSIM':ssim,
                         'avarage SAM': sam}, epoch) #通过这个我就可以看到，那个epoch的性能是最好的
 
+        #保存best模型
+        if psnr > best_psnr:
+            best_psnr = psnr
+            torch.save({
+                'epoch' : epoch,
+                'gen': net.state_dict(),
+                'gen_opt': hsid_optimizer.state_dict(),
+            }, f"checkpoints/two_stage_hsid_dense_best.pth")
 
     tb_writer.close()
 

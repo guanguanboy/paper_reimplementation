@@ -144,4 +144,5 @@ def run_cubic_test_dataset():
     print(next(iter(train_loader))[1].shape)
     print(len(train_loader))
 
-run_cubic_test_dataset()
+if __name__ == '__main__':
+    run_cubic_test_dataset()
