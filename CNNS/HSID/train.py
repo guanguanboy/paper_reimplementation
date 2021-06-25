@@ -1,4 +1,4 @@
-from matplotlib.pyplot import imshow
+from matplotlib.pyplot import axis, imshow
 import torch
 import torch.nn as nn
 
@@ -22,6 +22,9 @@ import scipy.io as scio
 from losses import EdgeLoss
 from tvloss import TVLoss
 from warmup_scheduler import GradualWarmupScheduler
+from dir_utils import *
+from model_utils import *
+import time
 
 #设置超参数
 NUM_EPOCHS =100
@@ -32,6 +35,7 @@ INIT_LEARNING_RATE = 0.001
 K = 36
 display_step = 20
 display_band = 20
+RESUME = False
 
 #设置随机种子
 seed = 200
@@ -565,6 +569,8 @@ from model_refactored import HSIDDenseNetTwoStage
 
 def train_model_residual_lowlight_twostage():
 
+    start_epoch = 1
+
     device = DEVICE
     #准备数据
     train_set = HsiCubicTrainDataset('./data/train_lowlight/')
@@ -593,7 +599,7 @@ def train_model_residual_lowlight_twostage():
     #net = nn.DataParallel(net).to(device)
     net = net.to(device)
 
-    num_epoch = 120
+    num_epoch = 200
     print('epoch count == ', num_epoch)
 
     #创建优化器
@@ -601,11 +607,26 @@ def train_model_residual_lowlight_twostage():
     hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE)
     
     #Scheduler
-    #scheduler = MultiStepLR(hsid_optimizer, milestones=[40,60,80,100], gamma=0.1)
+    scheduler = MultiStepLR(hsid_optimizer, milestones=[40,60,80,100,130,160], gamma=0.1)
     warmup_epochs = 3
-    scheduler_cosine = optim.lr_scheduler.CosineAnnealingLR(hsid_optimizer, num_epoch-warmup_epochs+40, eta_min=1e-6)
-    scheduler = GradualWarmupScheduler(hsid_optimizer, multiplier=1, total_epoch=warmup_epochs, after_scheduler=scheduler_cosine)
+    #scheduler_cosine = optim.lr_scheduler.CosineAnnealingLR(hsid_optimizer, num_epoch-warmup_epochs+40, eta_min=1e-7)
+    #scheduler = GradualWarmupScheduler(hsid_optimizer, multiplier=1, total_epoch=warmup_epochs, after_scheduler=scheduler_cosine)
     #scheduler.step()
+
+    #唤醒训练
+    if RESUME:
+        model_dir  = './checkpoints'
+        path_chk_rest    = utils.get_last_path(model_dir, '_latest.pth')
+        utils.load_checkpoint(net,path_chk_rest)
+        start_epoch = utils.load_start_epoch(path_chk_rest) + 1
+        utils.load_optim(hsid_optimizer, path_chk_rest)
+
+        for i in range(1, start_epoch):
+            scheduler.step()
+        new_lr = scheduler.get_lr()[0]
+        print('------------------------------------------------------------------------------')
+        print("==> Resuming Training with learning rate:", new_lr)
+        print('------------------------------------------------------------------------------')
 
     #定义loss 函数
     #criterion = nn.MSELoss()
@@ -624,7 +645,8 @@ def train_model_residual_lowlight_twostage():
     best_iter = 0
 
 
-    for epoch in range(num_epoch):
+    for epoch in range(start_epoch, num_epoch+1):
+        epoch_start_time = time.time()
         scheduler.step()
         #print(epoch, 'lr={:.6f}'.format(scheduler.get_last_lr()[0]))
         print('epoch = ', epoch, 'lr={:.6f}'.format(scheduler.get_lr()[0]))
@@ -695,6 +717,18 @@ def train_model_residual_lowlight_twostage():
 
                 denoised_hsi[:,:,batch_idx] = denoised_band_numpy
 
+                if batch_idx == 49:
+                    residual_squeezed = torch.squeeze(residual, axis=0)
+                    residual_stage2_squeezed = torch.squeeze(residual_stage2, axis=0)
+                    denoised_band_squeezed = torch.squeeze(denoised_band, axis=0) 
+                    label_test_squeezed = torch.squeeze(label_test,axis=0)
+                    noisy_test_squeezed = torch.squeeze(noisy_test,axis=0)
+                    tb_writer.add_image(f"images/{epoch}_restored", denoised_band_squeezed, 1, dataformats='CHW')
+                    tb_writer.add_image(f"images/{epoch}_residual", residual_squeezed, 1, dataformats='CHW')
+                    tb_writer.add_image(f"images/{epoch}_residual_stage2", residual_stage2_squeezed, 1, dataformats='CHW')
+                    tb_writer.add_image(f"images/{epoch}_label", label_test_squeezed, 1, dataformats='CHW')
+                    tb_writer.add_image(f"images/{epoch}_noisy", noisy_test_squeezed, 1, dataformats='CHW')
+
         psnr = PSNR(denoised_hsi, test_label_hsi)
         ssim = SSIM(denoised_hsi, test_label_hsi)
         sam = SAM(denoised_hsi, test_label_hsi)
@@ -708,11 +742,24 @@ def train_model_residual_lowlight_twostage():
         #保存best模型
         if psnr > best_psnr:
             best_psnr = psnr
+            best_epoch = epoch
+            best_iter = cur_step
             torch.save({
                 'epoch' : epoch,
                 'gen': net.state_dict(),
                 'gen_opt': hsid_optimizer.state_dict(),
             }, f"checkpoints/two_stage_hsid_dense_best.pth")
+
+        print("[epoch %d it %d PSNR: %.4f --- best_epoch %d best_iter %d Best_PSNR %.4f]" % (epoch, cur_step, psnr, best_epoch, best_iter, best_psnr))
+
+        print("------------------------------------------------------------------")
+        print("Epoch: {}\tTime: {:.4f}\tLoss: {:.4f}\tLearningRate {:.6f}".format(epoch, time.time()-epoch_start_time, gen_epoch_loss, scheduler.get_lr()[0]))
+        print("------------------------------------------------------------------")
+
+        torch.save({'epoch': epoch, 
+                    'gen': net.state_dict(),
+                    'gen_opt': hsid_optimizer.state_dict()
+                    }, os.path.join('./checkpoints',"model_latest.pth"))
 
     tb_writer.close()
 
