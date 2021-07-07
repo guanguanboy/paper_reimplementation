@@ -28,7 +28,7 @@ import time
 
 #设置超参数
 NUM_EPOCHS =100
-BATCH_SIZE = 128
+BATCH_SIZE = 256
 #os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
 DEVICE = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 INIT_LEARNING_RATE = 0.001
@@ -566,6 +566,7 @@ def train_model_residual_lowlight():
     tb_writer.close()
 
 from model_refactored import HSIDDenseNetTwoStage
+from losses import CharbonnierLoss, EdgeLoss
 
 def train_model_residual_lowlight_twostage():
 
@@ -599,7 +600,7 @@ def train_model_residual_lowlight_twostage():
     #net = nn.DataParallel(net).to(device)
     net = net.to(device)
 
-    num_epoch = 200
+    num_epoch = 100
     print('epoch count == ', num_epoch)
 
     #创建优化器
@@ -607,7 +608,7 @@ def train_model_residual_lowlight_twostage():
     hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE)
     
     #Scheduler
-    scheduler = MultiStepLR(hsid_optimizer, milestones=[40,60,80,100,130,160], gamma=0.1)
+    scheduler = MultiStepLR(hsid_optimizer, milestones=[40,60,80], gamma=0.1)
     warmup_epochs = 3
     #scheduler_cosine = optim.lr_scheduler.CosineAnnealingLR(hsid_optimizer, num_epoch-warmup_epochs+40, eta_min=1e-7)
     #scheduler = GradualWarmupScheduler(hsid_optimizer, multiplier=1, total_epoch=warmup_epochs, after_scheduler=scheduler_cosine)
@@ -644,6 +645,8 @@ def train_model_residual_lowlight_twostage():
     best_epoch = 0
     best_iter = 0
 
+    criterion_char = CharbonnierLoss()
+    criterion_edge = EdgeLoss()
 
     for epoch in range(start_epoch, num_epoch+1):
         epoch_start_time = time.time()
@@ -666,7 +669,17 @@ def train_model_residual_lowlight_twostage():
             #loss = loss_fuction(denoised_img, label)
 
             residual, residual_stage2 = net(noisy, cubic)
-            loss = loss_fuction(residual, label-noisy) + loss_fuction(residual_stage2, label-noisy)
+            #loss = loss_fuction(residual, label-noisy) + loss_fuction(residual_stage2, label-noisy)
+            restored_stage1 = noisy+residual
+            restored_stage2 = noisy+residual_stage2
+            #print(residual_stage2.shape)
+            loss_char1 = criterion_char(restored_stage1.repeat(1,3,1,1),label.repeat(1,3,1,1))
+            loss_char2 = criterion_char(restored_stage2.repeat(1,3,1,1),label.repeat(1,3,1,1))
+            loss_char = loss_char1 + loss_char2
+            loss_edge1 = criterion_edge(restored_stage1.repeat(1,3,1,1),label.repeat(1,3,1,1))
+            loss_edge2 = criterion_edge(restored_stage2.repeat(1,3,1,1),label.repeat(1,3,1,1))
+            loss_edge = loss_edge1 + loss_edge2
+            loss = loss_char + (0.05*loss_edge)
 
             loss.backward() # calcu gradient
             hsid_optimizer.step() # update parameter

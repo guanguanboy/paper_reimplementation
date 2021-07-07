@@ -24,19 +24,21 @@ from losses import EdgeLoss
 from tvloss import TVLoss
 from warmup_scheduler import GradualWarmupScheduler
 from dir_utils import *
-from model_utils import *
+#from model_utils import *
+import model_utils
 import time
+import dir_utils
 
 #设置超参数
 NUM_EPOCHS =100
 BATCH_SIZE = 128
 #os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
-DEVICE = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
 INIT_LEARNING_RATE = 0.001
 K = 36
 display_step = 20
 display_band = 20
-RESUME = False
+RESUME = True
 
 #设置随机种子
 seed = 200
@@ -81,7 +83,7 @@ def loss_function_with_tvloss(x,y):
 
 adv_criterion = nn.BCEWithLogitsLoss() 
 recon_criterion = nn.L1Loss() 
-lambda_recon = 200
+lambda_recon = 10
 
 from model_refactored import HSIDDenseNetTwoStage
 from Discriminator_copy import DiscriminatorABC
@@ -124,7 +126,7 @@ def train_model_residual_lowlight_twostage_gan():
     disc = disc.to(device)
     disc_opt = torch.optim.Adam(disc.parameters(), lr=INIT_LEARNING_RATE)
 
-    num_epoch = 200
+    num_epoch = 100
     print('epoch count == ', num_epoch)
 
     #创建优化器
@@ -132,7 +134,7 @@ def train_model_residual_lowlight_twostage_gan():
     hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE)
     
     #Scheduler
-    scheduler = MultiStepLR(hsid_optimizer, milestones=[40,60,80,100,130,160], gamma=0.1)
+    scheduler = MultiStepLR(hsid_optimizer, milestones=[40,60,80], gamma=0.1)
     warmup_epochs = 3
     #scheduler_cosine = optim.lr_scheduler.CosineAnnealingLR(hsid_optimizer, num_epoch-warmup_epochs+40, eta_min=1e-7)
     #scheduler = GradualWarmupScheduler(hsid_optimizer, multiplier=1, total_epoch=warmup_epochs, after_scheduler=scheduler_cosine)
@@ -141,10 +143,12 @@ def train_model_residual_lowlight_twostage_gan():
     #唤醒训练
     if RESUME:
         model_dir  = './checkpoints'
-        path_chk_rest    = utils.get_last_path(model_dir, '_latest.pth')
-        utils.load_checkpoint(net,path_chk_rest)
-        start_epoch = utils.load_start_epoch(path_chk_rest) + 1
-        utils.load_optim(hsid_optimizer, path_chk_rest)
+        path_chk_rest    = dir_utils.get_last_path(model_dir, 'model_latest.pth')
+        model_utils.load_checkpoint(net,path_chk_rest)
+        start_epoch = model_utils.load_start_epoch(path_chk_rest) + 1
+        model_utils.load_optim(hsid_optimizer, path_chk_rest)
+        model_utils.load_disc_checkpoint(disc, path_chk_rest)
+        model_utils.load_disc_optim(disc_opt, path_chk_rest)
 
         for i in range(1, start_epoch):
             scheduler.step()
@@ -207,9 +211,12 @@ def train_model_residual_lowlight_twostage_gan():
 
             residual, residual_stage2 = net(noisy, cubic)
             disc_fake_hat = disc(residual_stage2, noisy)
-            gen_adv_loss = adv_criterion(disc_fake_hat, torch.ones_like(disc_fake_hat))            
-            rec_loss = loss_fuction(residual, label-noisy) + loss_fuction(residual_stage2, label-noisy)
-            loss = gen_adv_loss + rec_loss
+            gen_adv_loss = adv_criterion(disc_fake_hat, torch.ones_like(disc_fake_hat))  
+            alpha = 0.2
+            beta = 0.2          
+            rec_loss = beta * (alpha*loss_fuction(residual, label-noisy) + (1-alpha) * recon_criterion(residual, label-noisy)) \
+             + (1-beta) * (alpha*loss_fuction(residual_stage2, label-noisy) + (1-alpha) * recon_criterion(residual_stage2, label-noisy))
+            loss = gen_adv_loss + lambda_recon * rec_loss
 
             loss.backward() # calcu gradient
             hsid_optimizer.step() # update parameter

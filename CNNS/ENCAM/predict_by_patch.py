@@ -71,9 +71,33 @@ def predict_lowlight_residual():
                 adj_spectral_bands = adj_spectral_bands.permute(0, 3,1,2)#交换第一维和第三维 ，shape: batch_size, band_num, height, width               
                 adj_spectral_bands = torch.unsqueeze(adj_spectral_bands, 1)
                 adj_spectral_bands = adj_spectral_bands.to(DEVICE)
-                residual = encam(current_noisy_band, adj_spectral_bands)
-                denoised_band = current_noisy_band + residual
+                print('adj_spectral_bands : ', adj_spectral_bands.shape)
+                print('adj_spectral_bands shape[4] =', adj_spectral_bands.shape[4])
+                #这里需要将current_noisy_band和adj_spectral_bands拆分成4份，每份大小为batchsize，1， band_num , height/2, width/2
+                current_noisy_band_00 = current_noisy_band[:,:, 0:current_noisy_band.shape[2]//2, 0:current_noisy_band.shape[3]//2]
+                adj_spectral_bands_00 = adj_spectral_bands[:,:,:, 0:adj_spectral_bands.shape[3]//2, 0:adj_spectral_bands.shape[4]//2]
+                residual_00 = encam(current_noisy_band_00, adj_spectral_bands_00)
+                denoised_band_00 = current_noisy_band_00 + residual_00
 
+                current_noisy_band_00 = current_noisy_band[:,:, 0:current_noisy_band.shape[2]//2, 0:current_noisy_band.shape[3]//2]
+                adj_spectral_bands_00 = adj_spectral_bands[:,:,:, 0:adj_spectral_bands.shape[3]//2, 0:adj_spectral_bands.shape[4]//2]
+                residual_00 = encam(current_noisy_band_00, adj_spectral_bands_00)
+                denoised_band_01 = current_noisy_band_00 + residual_00
+
+                current_noisy_band_00 = current_noisy_band[:,:, 0:(current_noisy_band.shape[2]//2), 0:(current_noisy_band.shape[3]//2)]
+                adj_spectral_bands_00 = adj_spectral_bands[:,:,:, 0:adj_spectral_bands.shape[3]//2, 0:adj_spectral_bands.shape[4]//2]
+                residual_00 = encam(current_noisy_band_00, adj_spectral_bands_00)
+                denoised_band_10 = current_noisy_band_00 + residual_00
+
+                current_noisy_band_00 = current_noisy_band[:,:, 0:current_noisy_band.shape[2]//2, 0:current_noisy_band.shape[3]//2]
+                adj_spectral_bands_11 = adj_spectral_bands[:,:,:, 0:adj_spectral_bands.shape[3]//2, 0:adj_spectral_bands.shape[4]//2]
+                residual_00 = encam(current_noisy_band_00, adj_spectral_bands_00)
+                denoised_band_11 = current_noisy_band_00 + residual_00
+
+                denoised_band_0 = torch.cat((denoised_band_00,denoised_band_01), dim=3)
+                denoised_band_1 = torch.cat((denoised_band_10,denoised_band_11), dim=3)
+                denoised_band = torch.cat((denoised_band_0, denoised_band_1),dim=2)
+                
                 denoised_band_numpy = denoised_band.cpu().numpy().astype(np.float32)
                 denoised_band_numpy = np.squeeze(denoised_band_numpy)
 

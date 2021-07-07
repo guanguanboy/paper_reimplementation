@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+DEVICE = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+
 class CharbonnierLoss(nn.Module):
     """Charbonnier Loss (L1)"""
 
@@ -21,7 +23,7 @@ class EdgeLoss(nn.Module):
         k = torch.Tensor([[.05, .25, .4, .25, .05]])
         self.kernel = torch.matmul(k.t(),k).unsqueeze(0).repeat(3,1,1,1)
         if torch.cuda.is_available():
-            self.kernel = self.kernel.cuda()
+            self.kernel = self.kernel.to(DEVICE)
         self.loss = CharbonnierLoss()
 
     def conv_gauss(self, img):

@@ -10,7 +10,7 @@ import tqdm
 from utils import get_adjacent_spectral_bands
 from metrics import PSNR, SSIM, SAM
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 #DEVICE = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 #超参数定义
