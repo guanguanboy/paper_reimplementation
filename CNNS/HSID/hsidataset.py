@@ -144,5 +144,41 @@ def run_cubic_test_dataset():
     print(next(iter(train_loader))[1].shape)
     print(len(train_loader))
 
+def data_aug(img, mode=0):#图像旋转0，90，180，270，逆时针
+    # data augmentation
+    if mode == 0: #不旋转
+        return img
+    elif mode == 1: #逆时针旋转90度
+        return np.rot90(img,k=1,axes=(1,2))
+    elif mode == 2:
+        return np.rot90(img,k=2,axes=(1,2)) #逆时针旋转180度
+    elif mode == 3:
+        return np.rot90(img,k=3,axes=(1,2)) #逆时针旋转270度
+
+class HsiCubicTrainDatasetAugment(Dataset):
+    def __init__(self, dataset_dir, mode):
+        super(HsiCubicTrainDatasetAugment, self).__init__()
+        self.image_filenames = [join(dataset_dir, x) for x in listdir(dataset_dir) if is_image_file(x)]
+        self.aug_mode = mode
+
+    def __getitem__(self, index):
+        mat = scio.loadmat(self.image_filenames[index], verify_compressed_data_integrity=False)
+        noisy = mat['patch'].astype(np.float32)
+        label = mat['label'].astype(np.float32)
+        cubic = mat['cubic'].astype(np.float32)
+
+        # 增加一个维度，因为HSID模型处理的是四维tensor，因此这里不需要另外增加一个维度
+        noisy_exp = np.expand_dims(noisy, axis=0)
+        label_exp = np.expand_dims(label, axis=0)
+
+        noisy_exp_aug = data_aug(noisy_exp, self.aug_mode).copy()
+        label_exp_aug = data_aug(label_exp, self.aug_mode).copy()
+        cubic_aug = data_aug(cubic, self.aug_mode).copy()
+
+        return torch.from_numpy(noisy_exp_aug), torch.from_numpy(cubic_aug), torch.from_numpy(label_exp_aug)
+
+    def __len__(self):
+        return len(self.image_filenames)
+
 if __name__ == '__main__':
     run_cubic_test_dataset()

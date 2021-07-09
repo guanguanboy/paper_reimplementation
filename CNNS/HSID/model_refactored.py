@@ -459,8 +459,8 @@ def create_denseModel():
 
 def create_denoisedenseModel():
     # `num_channels`为当前的通道数
-    num_channels, growth_rate = 60, 20
-    num_convs_in_dense_blocks = [3, 3, 3, 3] #添加了两个dense_block
+    num_channels, growth_rate = 61, 20
+    num_convs_in_dense_blocks = [3, 3] #添加了两个dense_block
     blks = []
     for i, num_convs in enumerate(num_convs_in_dense_blocks):
         blks.append(DenseBlock(num_convs, num_channels, growth_rate))
@@ -475,6 +475,23 @@ def create_denoisedenseModel():
 
     return net
 
+def create_denoisedenseModelGrad():
+    # `num_channels`为当前的通道数
+    num_channels, growth_rate = 60, 20
+    num_convs_in_dense_blocks = [3, 3] #添加了两个dense_block
+    blks = []
+    for i, num_convs in enumerate(num_convs_in_dense_blocks):
+        blks.append(DenseBlock(num_convs, num_channels, growth_rate))
+        # 上一个稠密块的输出通道数
+        num_channels += num_convs * growth_rate
+        # 在稠密块之间添加一个转换层，使通道数量减半
+        blks.append(transition_block(num_channels, num_channels // 2))
+        num_channels = num_channels // 2
+
+    net = nn.Sequential(*blks,
+    nn.BatchNorm2d(num_channels), nn.ReLU(),transition_block(num_channels, num_channels // 2))
+
+    return net
 
 def denseblock_test():
     blk = DenseBlock(2, 3, 10)
@@ -565,11 +582,319 @@ class HSIDDenseNetTwoStage(nn.Module):
 
         output = self.conv10(feature_conv_3_5_7_9)
 
+        
         refined_features = self.densenet(feature_conv_3_5_7_9)
         refined_residual = self.conv10_stage2(refined_features)
 
         return output, refined_residual # + x_spatial
 
+class HSIDDenseNetTwoStageWithPerPixelAttention(nn.Module):
+    def __init__(self, k=24):
+        super(HSIDDenseNetTwoStageWithPerPixelAttention, self).__init__()
+        self.spatial_feature_3 = nn.Conv2d(1, 20, kernel_size=3, stride=1, padding=1)
+        self.spatial_feature_5 = nn.Conv2d(1, 20, kernel_size=5, stride=1, padding=2)
+        self.spatial_feature_7 = nn.Conv2d(1, 20, kernel_size=7, stride=1, padding=3)
+
+        self.spectral_feature_3 = nn.Conv2d(k, 20, kernel_size=3, stride=1, padding=1)
+        self.spectral_feature_5 = nn.Conv2d(k, 20, kernel_size=5, stride=1, padding=2)
+        self.spectral_feature_7 = nn.Conv2d(k, 20, kernel_size=7, stride=1, padding=3)
+
+        #self.feature_3_5_7 concat + relu
+        self.relu = nn.ReLU()
+        #self.feature_3_5_7 concat + relu
+
+        #self.feature_all : Concat
+        self.conv1 = nn.Sequential(*conv_relu(120, 60))
+        self.conv2_3 = nn.Sequential(*conv_relu(60, 60), *conv_relu(60,60))
+        self.conv4_5 = nn.Sequential(*conv_relu(60, 60), *conv_relu(60,60))
+        self.conv6_7 = nn.Sequential(*conv_relu(60, 60), *conv_relu(60,60))
+        self.conv8_9 = nn.Sequential(*conv_relu(60, 60), *conv_relu(60,60))     
+
+        self.feature_conv3 = nn.Conv2d(60, 15, kernel_size=3, stride=1, padding=1) 
+        self.feature_conv5 = nn.Conv2d(60, 15, kernel_size=3, stride=1, padding=1) 
+        self.feature_conv7 = nn.Conv2d(60, 15, kernel_size=3, stride=1, padding=1)
+        self.feature_conv9 = nn.Conv2d(60, 15, kernel_size=3, stride=1, padding=1)
+         
+        #self.feature_conv_3_5_7_9 = concat
+        self.conv10 = nn.Conv2d(60, 1, kernel_size=3, stride=1, padding=1)
+
+        self.densenet = create_denoisedenseModel()
+
+        self.conv10_stage2 = nn.Conv2d(30, 1, kernel_size=3, stride=1, padding=1)
+
+        self.convAttn = nn.Conv2d(1, 60, kernel_size=1)
+
+    def forward(self, x_spatial, x_spectral):
+        x_spatial_feature_3 = self.spatial_feature_3(x_spatial)
+        x_spatial_feature_5 = self.spatial_feature_5(x_spatial)
+        x_spatial_feature_7 = self.spatial_feature_7(x_spatial)
+
+        x_spectral_feature_3 = self.spectral_feature_3(x_spectral)
+        x_spectral_feature_5 = self.spectral_feature_5(x_spectral)
+        x_spectral_feature_7 = self.spectral_feature_7(x_spectral)
+
+        feature_3_5_7 = torch.cat((x_spatial_feature_3, x_spatial_feature_5, x_spatial_feature_7), dim=1) #在通道维concat
+        feature_3_5_7 = self.relu(feature_3_5_7)
+        #print('feature_3_5_7 shape =', feature_3_5_7.shape)
+
+        feature_3_5_7_2 = torch.cat((x_spectral_feature_3, x_spectral_feature_5, x_spectral_feature_7), dim=1) # 在通道维concat
+        feature_3_5_7_2 = self.relu(feature_3_5_7_2)
+        #print('feature_3_5_7_2 shape =', feature_3_5_7_2.shape)
+
+        feature_all = torch.cat((feature_3_5_7, feature_3_5_7_2), dim=1)
+        #print('feature_all shape =', feature_all.shape)
+
+        x1 = self.conv1(feature_all)
+        x3 = self.conv2_3(x1)
+        x5 = self.conv4_5(x3)
+        x7 = self.conv6_7(x5)
+        x9 = self.conv8_9(x7)
+        
+        feature_conv3 = self.feature_conv3(x3)
+        feature_conv5 = self.feature_conv5(x5)
+        feature_conv7 = self.feature_conv7(x7)
+        feature_conv9 = self.feature_conv9(x9)
+
+        feature_conv_3_5_7_9 = torch.cat((feature_conv3, feature_conv5, feature_conv7, feature_conv9), dim=1)
+        
+        feature_conv_3_5_7_9 = self.relu(feature_conv_3_5_7_9)
+        #print('feature_conv_3_5_7_9 shape=', feature_conv_3_5_7_9.shape)
+
+        output = self.conv10(feature_conv_3_5_7_9)
+
+        #通过output 得到per-pixel attention map
+        per_pixel_att_map = self.convAttn(output)
+
+        propagated_feature = feature_conv_3_5_7_9 * per_pixel_att_map
+        refined_features = self.densenet(propagated_feature)
+        refined_residual = self.conv10_stage2(refined_features)
+
+        return output, refined_residual # + x_spatial
+
+
+class Get_gradient_same(nn.Module):
+    def __init__(self):
+        super(Get_gradient_same, self).__init__()
+        kernel_v = [[0, -1, 0], 
+                    [0, 0, 0], 
+                    [0, 1, 0]]
+        kernel_h = [[0, 0, 0], 
+                    [-2, 0, 2], 
+                    [0, 0, 0]]
+        kernel_h = torch.FloatTensor(kernel_h).unsqueeze(0).unsqueeze(0)
+        kernel_v = torch.FloatTensor(kernel_v).unsqueeze(0).unsqueeze(0)
+        self.weight_h = nn.Parameter(data = kernel_h, requires_grad = False)
+        self.weight_v = nn.Parameter(data = kernel_v, requires_grad = False)
+
+    def forward(self, x):
+        x_v = F.conv2d(x, self.weight_v, padding=1)
+        x_h = F.conv2d(x, self.weight_h, padding=1)
+        x = torch.sqrt(torch.pow(x_v, 2) + torch.pow(x_h, 2) + 1e-6)
+        return x
+
+class Get_gradient_horizental_partial(nn.Module):
+    def __init__(self):
+        super(Get_gradient_horizental_partial, self).__init__()
+        kernel_v = [[0, -1, 0], 
+                    [0, 0, 0], 
+                    [0, 1, 0]]
+
+        kernel_v = torch.FloatTensor(kernel_v).unsqueeze(0).unsqueeze(0)
+        self.weight_v = nn.Parameter(data = kernel_v, requires_grad = False)
+
+    def forward(self, x):
+        x_v = F.conv2d(x, self.weight_v, padding=1)
+        x = x_v
+        return x
+
+class HSIDDenseNetTwoStageGradient(nn.Module):
+    def __init__(self, k=24):
+        super(HSIDDenseNetTwoStageGradient, self).__init__()
+        self.spatial_feature_3 = nn.Conv2d(1, 20, kernel_size=3, stride=1, padding=1)
+        self.spatial_feature_5 = nn.Conv2d(1, 20, kernel_size=5, stride=1, padding=2)
+        self.spatial_feature_7 = nn.Conv2d(1, 20, kernel_size=7, stride=1, padding=3)
+
+        self.spectral_feature_3 = nn.Conv2d(k, 20, kernel_size=3, stride=1, padding=1)
+        self.spectral_feature_5 = nn.Conv2d(k, 20, kernel_size=5, stride=1, padding=2)
+        self.spectral_feature_7 = nn.Conv2d(k, 20, kernel_size=7, stride=1, padding=3)
+
+        #self.feature_3_5_7 concat + relu
+        self.relu = nn.ReLU()
+        #self.feature_3_5_7 concat + relu
+
+        #self.feature_all : Concat
+        self.conv1 = nn.Sequential(*conv_relu(120, 60))
+        self.conv2_3 = nn.Sequential(*conv_relu(60, 60), *conv_relu(60,60))
+        self.conv4_5 = nn.Sequential(*conv_relu(60, 60), *conv_relu(60,60))
+        self.conv6_7 = nn.Sequential(*conv_relu(60, 60), *conv_relu(60,60))
+        self.conv8_9 = nn.Sequential(*conv_relu(60, 60), *conv_relu(60,60))     
+
+        self.feature_conv3 = nn.Conv2d(60, 15, kernel_size=3, stride=1, padding=1) 
+        self.feature_conv5 = nn.Conv2d(60, 15, kernel_size=3, stride=1, padding=1) 
+        self.feature_conv7 = nn.Conv2d(60, 15, kernel_size=3, stride=1, padding=1)
+        self.feature_conv9 = nn.Conv2d(60, 15, kernel_size=3, stride=1, padding=1)
+         
+        #self.feature_conv_3_5_7_9 = concat
+        self.conv10 = nn.Conv2d(60, 1, kernel_size=3, stride=1, padding=1)
+
+        self.densenet = create_denoisedenseModel()
+
+        self.conv10_stage2 = nn.Conv2d(31, 1, kernel_size=3, stride=1, padding=1)
+
+        self.get_grad = Get_gradient_horizental_partial()
+
+    def forward(self, x_spatial, x_spectral):
+        x_spatial_feature_3 = self.spatial_feature_3(x_spatial)
+        x_spatial_feature_5 = self.spatial_feature_5(x_spatial)
+        x_spatial_feature_7 = self.spatial_feature_7(x_spatial)
+
+        x_spectral_feature_3 = self.spectral_feature_3(x_spectral)
+        x_spectral_feature_5 = self.spectral_feature_5(x_spectral)
+        x_spectral_feature_7 = self.spectral_feature_7(x_spectral)
+
+        feature_3_5_7 = torch.cat((x_spatial_feature_3, x_spatial_feature_5, x_spatial_feature_7), dim=1) #在通道维concat
+        feature_3_5_7 = self.relu(feature_3_5_7)
+        #print('feature_3_5_7 shape =', feature_3_5_7.shape)
+
+        feature_3_5_7_2 = torch.cat((x_spectral_feature_3, x_spectral_feature_5, x_spectral_feature_7), dim=1) # 在通道维concat
+        feature_3_5_7_2 = self.relu(feature_3_5_7_2)
+        #print('feature_3_5_7_2 shape =', feature_3_5_7_2.shape)
+
+        feature_all = torch.cat((feature_3_5_7, feature_3_5_7_2), dim=1)
+        #print('feature_all shape =', feature_all.shape)
+
+        x1 = self.conv1(feature_all)
+        x3 = self.conv2_3(x1)
+        x5 = self.conv4_5(x3)
+        x7 = self.conv6_7(x5)
+        x9 = self.conv8_9(x7)
+        
+        feature_conv3 = self.feature_conv3(x3)
+        feature_conv5 = self.feature_conv5(x5)
+        feature_conv7 = self.feature_conv7(x7)
+        feature_conv9 = self.feature_conv9(x9)
+
+        feature_conv_3_5_7_9 = torch.cat((feature_conv3, feature_conv5, feature_conv7, feature_conv9), dim=1)
+        
+        feature_conv_3_5_7_9 = self.relu(feature_conv_3_5_7_9)
+        #print('feature_conv_3_5_7_9 shape=', feature_conv_3_5_7_9.shape)
+
+        residual = self.conv10(feature_conv_3_5_7_9)
+        restored = x_spatial + residual
+
+        #通过restored生成gradient map
+        grad_map = self.get_grad(restored)
+        
+        refined_features = self.densenet(feature_conv_3_5_7_9)
+
+        refined_features = torch.cat((refined_features, grad_map), dim=1)
+        refined_residual = self.conv10_stage2(refined_features)
+
+        return residual, refined_residual # + x_spatial
+
+class HSIDDenseNetTwoStageGradientBranch(nn.Module):
+    def __init__(self, k=24):
+        super(HSIDDenseNetTwoStageGradientBranch, self).__init__()
+        self.spatial_feature_3 = nn.Conv2d(1, 20, kernel_size=3, stride=1, padding=1)
+        self.spatial_feature_5 = nn.Conv2d(1, 20, kernel_size=5, stride=1, padding=2)
+        self.spatial_feature_7 = nn.Conv2d(1, 20, kernel_size=7, stride=1, padding=3)
+
+        self.spectral_feature_3 = nn.Conv2d(k, 20, kernel_size=3, stride=1, padding=1)
+        self.spectral_feature_5 = nn.Conv2d(k, 20, kernel_size=5, stride=1, padding=2)
+        self.spectral_feature_7 = nn.Conv2d(k, 20, kernel_size=7, stride=1, padding=3)
+
+        #self.feature_3_5_7 concat + relu
+        self.relu = nn.ReLU()
+        #self.feature_3_5_7 concat + relu
+
+        #self.feature_all : Concat
+        self.conv1 = nn.Sequential(*conv_relu(120, 60))
+        self.conv2_3 = nn.Sequential(*conv_relu(60, 60), *conv_relu(60,60))
+        self.conv4_5 = nn.Sequential(*conv_relu(60, 60), *conv_relu(60,60))
+        self.conv6_7 = nn.Sequential(*conv_relu(60, 60), *conv_relu(60,60))
+        self.conv8_9 = nn.Sequential(*conv_relu(60, 60), *conv_relu(60,60))     
+
+        self.feature_conv3 = nn.Conv2d(60, 15, kernel_size=3, stride=1, padding=1) 
+        self.feature_conv5 = nn.Conv2d(60, 15, kernel_size=3, stride=1, padding=1) 
+        self.feature_conv7 = nn.Conv2d(60, 15, kernel_size=3, stride=1, padding=1)
+        self.feature_conv9 = nn.Conv2d(60, 15, kernel_size=3, stride=1, padding=1)
+         
+        #self.feature_conv_3_5_7_9 = concat
+        self.conv10 = nn.Conv2d(60, 1, kernel_size=3, stride=1, padding=1)
+
+        self.densenet = create_denoisedenseModel()
+
+        self.grad_branch_transition = nn.Conv2d(1, 60,kernel_size=1, padding=0)
+        self.grad_branch_net = create_denoisedenseModelGrad()
+        
+        self.conv10_stage2 = nn.Conv2d(30, 1, kernel_size=3, stride=1, padding=1)
+
+        self.get_grad = Get_gradient_same()
+        self.generate_grad = nn.Conv2d(30, 1, kernel_size=3, stride=1, padding=1)
+
+    def forward(self, x_spatial, x_spectral):
+        x_spatial_feature_3 = self.spatial_feature_3(x_spatial)
+        x_spatial_feature_5 = self.spatial_feature_5(x_spatial)
+        x_spatial_feature_7 = self.spatial_feature_7(x_spatial)
+
+        x_spectral_feature_3 = self.spectral_feature_3(x_spectral)
+        x_spectral_feature_5 = self.spectral_feature_5(x_spectral)
+        x_spectral_feature_7 = self.spectral_feature_7(x_spectral)
+
+        feature_3_5_7 = torch.cat((x_spatial_feature_3, x_spatial_feature_5, x_spatial_feature_7), dim=1) #在通道维concat
+        feature_3_5_7 = self.relu(feature_3_5_7)
+        #print('feature_3_5_7 shape =', feature_3_5_7.shape)
+
+        feature_3_5_7_2 = torch.cat((x_spectral_feature_3, x_spectral_feature_5, x_spectral_feature_7), dim=1) # 在通道维concat
+        feature_3_5_7_2 = self.relu(feature_3_5_7_2)
+        #print('feature_3_5_7_2 shape =', feature_3_5_7_2.shape)
+
+        feature_all = torch.cat((feature_3_5_7, feature_3_5_7_2), dim=1)
+        #print('feature_all shape =', feature_all.shape)
+
+        x1 = self.conv1(feature_all)
+        x3 = self.conv2_3(x1)
+        x5 = self.conv4_5(x3)
+        x7 = self.conv6_7(x5)
+        x9 = self.conv8_9(x7)
+        
+        feature_conv3 = self.feature_conv3(x3)
+        feature_conv5 = self.feature_conv5(x5)
+        feature_conv7 = self.feature_conv7(x7)
+        feature_conv9 = self.feature_conv9(x9)
+
+        feature_conv_3_5_7_9 = torch.cat((feature_conv3, feature_conv5, feature_conv7, feature_conv9), dim=1)
+        
+        feature_conv_3_5_7_9 = self.relu(feature_conv_3_5_7_9)
+        #print('feature_conv_3_5_7_9 shape=', feature_conv_3_5_7_9.shape)
+
+        residual = self.conv10(feature_conv_3_5_7_9)
+        restored = x_spatial + residual
+
+        #通过restored生成gradient map
+        grad_map = self.get_grad(restored)
+
+
+        grad_map_transed = self.grad_branch_transition(grad_map)
+        grad_map_features = self.grad_branch_net(grad_map_transed)
+
+        grad_map_restored = self.generate_grad(grad_map_features)
+        features_with_grad = torch.cat((feature_conv_3_5_7_9, grad_map_restored), dim=1)
+        refined_features = self.densenet(features_with_grad)
+        #print(refined_features.shape)
+        refined_residual = self.conv10_stage2(refined_features)
+
+        return residual, refined_residual, grad_map, grad_map_restored # + x_spatial 如果要加上gradient loss的话，需要将grad_map_restored返回
+
+def gradient_test():
+    net = HSIDDenseNetTwoStageGradientBranch(36)
+    data = torch.randn(1, 36, 200, 200)
+    data1 = torch.randn(1, 1, 200, 200)
+
+    output = net(data1, data)
+    print(output[0].shape)
+
 if __name__ == '__main__':
-    test()
-    denseblock_test()
+    #test()
+    #denseblock_test()
+    gradient_test()

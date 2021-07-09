@@ -215,19 +215,16 @@ def predict_residual():
     #计算pnsr和ssim
     print("=====averPSNR:{:.3f}=====averSSIM:{:.4f}=====averSAM:{:.3f}".format(psnr, ssim, sam)) 
 
-from model import HSID_1x3
-from model_refactored import HSIDRefactored,HSIDInception,HSIDInceptionV2,HSIDInceptionV3
-
 def predict_lowlight_residual():
 
     #加载模型
     #hsid = HSID(36)
-    hsid = HSIDInceptionV3(36)
+    hsid = HSID(36)
     #hsid = nn.DataParallel(hsid).to(DEVICE)
     #device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
     hsid = hsid.to(DEVICE)
-    hsid.load_state_dict(torch.load('./checkpoints/hsid_inception_v3_99.pth', map_location='cuda:0')['gen'])
+    hsid.load_state_dict(torch.load('./checkpoints/hsid_99.pth', map_location='cuda:0')['gen'])
 
     #加载数据
     mat_src_path = './data/test_lowlight/origin/soup_bigcorn_orange_1ms.mat'
@@ -289,18 +286,18 @@ def predict_lowlight_residual():
     #计算pnsr和ssim
     print("=====averPSNR:{:.3f}=====averSSIM:{:.4f}=====averSAM:{:.3f}".format(psnr, ssim, sam)) 
 
-from model_refactored import HSIDDenseNetTwoStage,HSIDDenseNetTwoStageWithPerPixelAttention
-from model_refactored import HSIDDenseNetTwoStageGradientBranch
+from model_res import HSIDRefactoredTwoStage
+
 def predict_lowlight_residual_two_stage():
 
     #加载模型
     #hsid = HSID(36)
-    hsid = HSIDDenseNetTwoStageGradientBranch(36)
-    #hsid = nn.DataParallel(hsid).to(DEVICE)
+    hsid = HSIDRefactoredTwoStage(36)
+    hsid = nn.DataParallel(hsid).to(DEVICE) #如果是使用多GPU并行训练出来的，那么在预测时，也需要使用DataParallel将网络包起来
     #device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
-    hsid = hsid.to(DEVICE)
-    hsid.load_state_dict(torch.load('./checkpoints/two_stage_hsid_dense_best.pth', map_location='cuda:0')['gen'])
+    #hsid = hsid.to(DEVICE)
+    hsid.load_state_dict(torch.load('./checkpoints/two_stage_hsid_resnet_199.pth', map_location='cuda:0')['gen'])
 
     #加载数据
     mat_src_path = './data/test_lowlight/origin/soup_bigcorn_orange_1ms.mat'
@@ -346,7 +343,7 @@ def predict_lowlight_residual_two_stage():
                 adj_spectral_bands = get_adjacent_spectral_bands(noisy, K, i)# shape: batch_size, width, height, band_num
                 adj_spectral_bands = adj_spectral_bands.permute(0, 3,1,2)#交换第一维和第三维 ，shape: batch_size, band_num, height, width               
                 adj_spectral_bands = adj_spectral_bands.to(DEVICE)
-                residual, residual_stage2,grad_map,grad_map_restored = hsid(current_noisy_band, adj_spectral_bands)
+                residual,residual_stage2 = hsid(current_noisy_band, adj_spectral_bands)
                 denoised_band = current_noisy_band + residual_stage2
 
                 denoised_band_numpy = denoised_band.cpu().numpy().astype(np.float32)
@@ -363,85 +360,9 @@ def predict_lowlight_residual_two_stage():
     #计算pnsr和ssim
     print("=====averPSNR:{:.3f}=====averSSIM:{:.4f}=====averSAM:{:.3f}".format(psnr, ssim, sam)) 
 
-from hsidataset import HsiCubicLowlightTestDataset
-
-def predict_lowlight_residual_two_stage2():
-
-    #加载模型
-    #hsid = HSID(36)
-    hsid = HSIDDenseNetTwoStage(36)
-    #hsid = nn.DataParallel(hsid).to(DEVICE)
-    #device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
-
-    hsid = hsid.to(DEVICE)
-    hsid.load_state_dict(torch.load('./checkpoints/two_stage_hsid_dense_119.pth', map_location='cuda:0')['gen'])
-
-    #加载测试label数据
-    mat_src_path = './data/test_lowlight/origin/soup_bigcorn_orange_1ms.mat'
-    test_label_hsi = scio.loadmat(mat_src_path)['label']
-
-    #加载测试数据
-    batch_size = 1
-    test_data_dir = './data/test_lowlight/cubic/'
-    test_set = HsiCubicLowlightTestDataset(test_data_dir)
-    test_dataloader = DataLoader(dataset=test_set, batch_size=batch_size, shuffle=False)
-
-    batch_size, channel, width, height = next(iter(test_dataloader))[0].shape
-    
-    band_num = len(test_dataloader)
-    denoised_hsi = np.zeros((width, height, band_num))
-
-
-    #指定结果输出路径
-    test_result_output_path = './data/testresult/'
-    if not os.path.exists(test_result_output_path):
-        os.makedirs(test_result_output_path)
-
-    #逐个通道的去噪
-    """
-    分配一个numpy数组，存储去噪后的结果
-    遍历所有通道，
-    对于每个通道，通过get_adjacent_spectral_bands获取其相邻的K个通道
-    调用hsid进行预测
-    将预测到的residual和输入的noise加起来，得到输出band
-
-    将去噪后的结果保存成mat结构
-    """
-    hsid.eval()
-    for batch_idx, (noisy_test, cubic_test, label_test) in enumerate(test_dataloader):
-        noisy_test = noisy_test.type(torch.FloatTensor)
-        label_test = label_test.type(torch.FloatTensor)
-        cubic_test = cubic_test.type(torch.FloatTensor)
-
-        noisy_test = noisy_test.to(DEVICE)
-        label_test = label_test.to(DEVICE)
-        cubic_test = cubic_test.to(DEVICE)
-
-        with torch.no_grad():
-
-            residual,residual_stage2 = hsid(noisy_test, cubic_test)
-            denoised_band = noisy_test + residual_stage2
-            
-            denoised_band_numpy = denoised_band.cpu().numpy().astype(np.float32)
-            denoised_band_numpy = np.squeeze(denoised_band_numpy)
-
-            denoised_hsi[:,:,batch_idx] = denoised_band_numpy
-
-    psnr = PSNR(denoised_hsi, test_label_hsi)
-    ssim = SSIM(denoised_hsi, test_label_hsi)
-    sam = SAM(denoised_hsi, test_label_hsi)
-
-    #mdict是python字典类型，value值需要是一个numpy数组
-    scio.savemat(test_result_output_path + 'result.mat', {'denoised': denoised_hsi})
-
-    #计算pnsr和ssim
-    print("=====averPSNR:{:.3f}=====averSSIM:{:.4f}=====averSAM:{:.3f}".format(psnr, ssim, sam)) 
-
-
 if __name__=="__main__":
     #predict()
     #predict_cubic()
     #predict_residual()
     #predict_lowlight_residual()
     predict_lowlight_residual_two_stage()
-    #predict_lowlight_residual_two_stage2()
