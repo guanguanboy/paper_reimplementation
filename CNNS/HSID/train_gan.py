@@ -38,7 +38,7 @@ INIT_LEARNING_RATE = 0.001
 K = 36
 display_step = 20
 display_band = 20
-RESUME = True
+RESUME = False
 
 #设置随机种子
 seed = 200
@@ -210,13 +210,17 @@ def train_model_residual_lowlight_twostage_gan():
             #loss = loss_fuction(denoised_img, label)
 
             residual, residual_stage2 = net(noisy, cubic)
-            disc_fake_hat = disc(residual_stage2, noisy)
-            gen_adv_loss = adv_criterion(disc_fake_hat, torch.ones_like(disc_fake_hat))  
+            disc_fake_hat1 = disc(residual, noisy)
+            disc_fake_hat2 = disc(residual_stage2, noisy)
+            gen_adv_loss1 = adv_criterion(disc_fake_hat1, torch.ones_like(disc_fake_hat1))
+            gen_adv_loss2 = adv_criterion(disc_fake_hat2, torch.ones_like(disc_fake_hat2))  
             alpha = 0.2
             beta = 0.2          
-            rec_loss = beta * (alpha*loss_fuction(residual, label-noisy) + (1-alpha) * recon_criterion(residual, label-noisy)) \
-             + (1-beta) * (alpha*loss_fuction(residual_stage2, label-noisy) + (1-alpha) * recon_criterion(residual_stage2, label-noisy))
-            loss = gen_adv_loss + lambda_recon * rec_loss
+            #rec_loss = beta * (alpha*loss_fuction(residual, label-noisy) + (1-alpha) * recon_criterion(residual, label-noisy)) \
+            # + (1-beta) * (alpha*loss_fuction(residual_stage2, label-noisy) + (1-alpha) * recon_criterion(residual_stage2, label-noisy))
+            rec_loss = beta * (loss_fuction(residual, label-noisy)) \
+             + (1-beta) * (recon_criterion(residual_stage2, label-noisy))
+            loss = gen_adv_loss1 + gen_adv_loss2 + lambda_recon * rec_loss
 
             loss.backward() # calcu gradient
             hsid_optimizer.step() # update parameter
