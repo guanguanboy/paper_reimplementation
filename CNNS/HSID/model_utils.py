@@ -22,9 +22,9 @@ def save_checkpoint(model_dir, state, session):
 def load_checkpoint(model, weights):
     checkpoint = torch.load(weights)
     try:
-        model.load_state_dict(checkpoint["state_dict"])
+        model.load_state_dict(checkpoint["gen"])
     except:
-        state_dict = checkpoint["state_dict"]
+        state_dict = checkpoint["gen"]
         new_state_dict = OrderedDict()
         for k, v in state_dict.items():
             name = k[7:] # remove `module.`
@@ -51,3 +51,19 @@ def load_optim(optimizer, weights):
     optimizer.load_state_dict(checkpoint['gen_opt'])
     # for p in optimizer.param_groups: lr = p['lr']
     # return lr
+
+def load_disc_optim(optimizer, weights):
+    checkpoint = torch.load(weights)
+    optimizer.load_state_dict(checkpoint['disc_opt'])
+
+def load_disc_checkpoint(model, weights):
+    checkpoint = torch.load(weights)
+    try:
+        model.load_state_dict(checkpoint["disc"])
+    except:
+        state_dict = checkpoint["disc"]
+        new_state_dict = OrderedDict()
+        for k, v in state_dict.items():
+            name = k[7:] # remove `module.`
+            new_state_dict[name] = v
+        model.load_state_dict(new_state_dict)

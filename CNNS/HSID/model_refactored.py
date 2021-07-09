@@ -459,8 +459,10 @@ def create_denseModel():
 
 def create_denoisedenseModel():
     # `num_channels`为当前的通道数
+
     num_channels, growth_rate = 61, 20
     num_convs_in_dense_blocks = [3, 3] #添加了两个dense_block
+
     blks = []
     for i, num_convs in enumerate(num_convs_in_dense_blocks):
         blks.append(DenseBlock(num_convs, num_channels, growth_rate))
@@ -588,6 +590,7 @@ class HSIDDenseNetTwoStage(nn.Module):
 
         return output, refined_residual # + x_spatial
 
+<<<<<<< HEAD
 class HSIDDenseNetTwoStageWithPerPixelAttention(nn.Module):
     def __init__(self, k=24):
         super(HSIDDenseNetTwoStageWithPerPixelAttention, self).__init__()
@@ -893,6 +896,7 @@ def gradient_test():
 
     output = net(data1, data)
     print(output[0].shape)
+
 
 if __name__ == '__main__':
     #test()

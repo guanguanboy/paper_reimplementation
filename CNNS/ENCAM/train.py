@@ -12,13 +12,14 @@ from metrics import PSNR, SSIM, SAM
 from torch.utils.data import DataLoader
 from hsidataset import HsiCubicTrainDataset, HsiCubicLowlightTestDataset
 from torch.nn.modules.loss import _Loss
+import os
 
 #设置超参数
 #设置超参数
 NUM_EPOCHS =70
 BATCH_SIZE = 128
-#os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
-DEVICE = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+DEVICE = "cuda:2" if torch.cuda.is_available() else "cpu"
 INIT_LEARNING_RATE = 0.0001
 K = 30
 display_step = 20
@@ -26,7 +27,7 @@ display_step = 20
 #设置随机种子
 seed = 200
 torch.manual_seed(seed)
-if DEVICE == 'cuda':
+if DEVICE == 'cuda:2':
     torch.cuda.manual_seed(seed)
 
 class sum_squared_error(_Loss):  # PyTorch 0.4.1
@@ -73,8 +74,9 @@ def train_model_residual_lowlight():
     #创建模型
     net = ENCAM()
     #init_params(net) #创建encam时，已经通过self._initialize_weights()进行了初始化
-    #net = nn.DataParallel(net).to(device)
     net = net.to(device)
+    #net = nn.DataParallel(net)
+    #net = net.to(device)
 
     #创建优化器
     #hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE, betas=(0.9, 0,999))
@@ -143,6 +145,7 @@ def train_model_residual_lowlight():
         }, f"checkpoints/encam_{epoch}.pth")
 
         #测试代码
+        """
         net.eval()
         for batch_idx, (noisy_test, cubic_test, label_test) in enumerate(test_dataloader):
             noisy_test = noisy_test.type(torch.FloatTensor)
@@ -174,7 +177,7 @@ def train_model_residual_lowlight():
                         'average SSIM':ssim,
                         'avarage SAM': sam}, epoch) #通过这个我就可以看到，那个epoch的性能是最好的
 
-
+        """
     tb_writer.close()
 
 if __name__ == '__main__':

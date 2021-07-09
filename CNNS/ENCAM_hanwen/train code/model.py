@@ -1,12 +1,9 @@
-import torch
+from region_nl import RegionNONLocalBlock
 import torch.nn as nn
-import numpy as np
+import torch
 import torch.nn.functional as F
 import torch.nn.init as init
-from region_nl import RegionNONLocalBlock
-from NLblock import NONLocalBlock2D
 
-torch.cuda.set_device(0)
 class ChannelAttention(nn.Module):
     def __init__(self, in_planes, ):
         super(ChannelAttention, self).__init__()
@@ -26,10 +23,6 @@ class ChannelAttention(nn.Module):
         return self.sigmoid(out)
 
 
-"""
-conv_relu
-实现了MSC， muti-scale convolution 这个模块
-"""
 class conv_relu(nn.Module):
     def __init__(self, inchannels, outchannels, stride=1):
         super(conv_relu, self).__init__()
@@ -75,10 +68,10 @@ class Denoising_Block(nn.Module):
         self.group_list =[]
         self.conv1 =conv_relu(channel ,inter_channel)
 
-        for i in range(block_num -1):#block_num指的是MSC的个数
+        for i in range(block_num -1):
 
             group = nn.Sequential(
-                nn.Conv2d(channels_now, inter_channel, 1, 1, 0), #对应每个MSC结束之后的1x1的卷积
+                nn.Conv2d(channels_now, inter_channel, 1, 1, 0),
                 nn.ReLU(),
                 conv_relu(inter_channel ,inter_channel)
             )
@@ -106,14 +99,12 @@ class Denoising_Block(nn.Module):
 
         return out
 
-"""
-实现的是NCU这个模块
-"""
+#NCB is the NCU module in this article
 class NCB(nn.Module):
     def __init__(self, inchannels, outchannels, grid=[4, 4]):
         super(NCB, self).__init__()
         self.ca1 = ChannelAttention(inchannels)
-        self.encab = NONLocalBlock2D(inchannels, sub_sample=False, bn_layer=False)
+        self.encab = RegionNONLocalBlock(inchannels, grid=grid)
         self.conv = conv_relu(inchannels, outchannels)
 
 
@@ -138,7 +129,7 @@ class ENCAM(nn.Module):
         self.f3d_1 = nn.Conv3d(1, 16, (30, 3, 3), 1, (0, 1, 1))
         self.f3d_2 = nn.Conv3d(1, 16, (30, 7, 7), 1, (0, 3, 3))
 
-        self.NCB_1 = NCB(channels, channels, grid=[6, 6]) #grid 用于指定non-local的分块的数量
+        self.NCB_1 = NCB(channels, channels, grid=[6, 6])
         self.NCB_2 = NCB(channels, channels, grid=[4, 4])
         self.NCB_3 = NCB(channels, channels, grid=[2, 2])
         self.NCB_4 = NCB(channels, channels, grid=[2, 2])
@@ -160,34 +151,34 @@ class ENCAM(nn.Module):
 
         self.ca = ChannelAttention(672)
 
-    def forward(self, x, y): #x是单波段的噪声 shape:(batch, 1, 20, 20)，y是多波段的噪声 shape:(batch, 1, 30, 20, 20)
-        f2d_3 = self.f2d_3(x) # shape:(batch, 32, 20, 20)
-        f2d_5_1 = self.f2d_5_1(x) #(batch, 32, 20, 20)
-        f2d_5_2 = self.f2d_5_2(F.relu(f2d_5_1)) # shape:(batch, 16, 20, 20)
-        f2d_5_3 = self.f2d_5_3(F.relu(f2d_5_1)) # shape:(batch, 16, 20, 20)
+    def forward(self, x, y):
+        f2d_3 = self.f2d_3(x)
+        f2d_5_1 = self.f2d_5_1(x)
+        f2d_5_2 = self.f2d_5_2(F.relu(f2d_5_1))
+        f2d_5_3 = self.f2d_5_3(F.relu(f2d_5_1))
 
-        f3d_1 = self.f3d_1(y) #三维卷积，shape:(batch, 16, 1, 20, 20)
-        f3d_2 = self.f3d_2(y) #(batch, 16, 1, 20, 20)
+        f3d_1 = self.f3d_1(y)
+        f3d_2 = self.f3d_2(y)
 
-        out1 = F.relu(torch.cat((f2d_3, f2d_5_2, f2d_5_3), dim=1)) #shape:(batch, 64, 20, 20)
-        out2 = F.relu(torch.cat((f3d_1, f3d_2), dim=1)).squeeze(2) #shape:(batch, 32, 20, 20)
-        out3 = torch.cat((out1, out2), dim=1) ##shape:(batch, 96, 20, 20)
+        out1 = F.relu(torch.cat((f2d_3, f2d_5_2, f2d_5_3), dim=1))
+        out2 = F.relu(torch.cat((f3d_1, f3d_2), dim=1)).squeeze(2)
+        out3 = torch.cat((out1, out2), dim=1)
 
-        block1 = self.Dblock1(self.NCB_1(out3)) #shape:(batch, 96, 20, 20)
-        block2 = self.Dblock2(self.NCB_2(out3 +block1))#shape:(batch, 96, 20, 20)
-        block3 = self.Dblock3(self.NCB_3(out3 +block2))#shape:(batch, 96, 20, 20)
-        block4 = self.Dblock4(self.NCB_4(out3 +block3))#shape:(batch, 96, 20, 20)
-        block5 = self.Dblock5(self.NCB_5(out3 +block4))#shape:(batch, 96, 20, 20)
-        block6 = self.Dblock6(self.NCB_6(out3 +block5))#shape:(batch, 96, 20, 20)
+        block1 = self.Dblock1(self.NCB_1(out3))
+        block2 = self.Dblock2(self.NCB_2(out3 +block1))
+        block3 = self.Dblock3(self.NCB_3(out3 +block2))
+        block4 = self.Dblock4(self.NCB_4(out3 +block3))
+        block5 = self.Dblock5(self.NCB_5(out3 +block4))
+        block6 = self.Dblock6(self.NCB_6(out3 +block5))
 
 
         concat = torch.cat(
-            (out3, block1, block2, block3, block4, block5, block6), dim=1)#shape:(batch, 96*7=672, 20, 20)
-        concat = concat * self.ca(concat) #shape:(batch, 672, 20, 20)
-        concat = self.concat(concat) #shape:(batch, 1, 20, 20)
+            (out3, block1, block2, block3, block4, block5, block6), dim=1)
+        concat = concat * self.ca(concat)
+        concat = self.concat(concat)
 
 
-        return concat
+        return x - concat
 
     def _initialize_weights(self):
         for m in self.modules():
@@ -206,107 +197,3 @@ class ENCAM(nn.Module):
                 init.constant_(m.bias, 0)
 
 
-def model_5():
-    models=ENCAM()
-    models.load_state_dict(torch.load('ENCAM_SIGMA005.pth',map_location='cuda:0'))
-    models.cuda()
-    models.eval()
-    return models
-
-def model_25():
-    models=ENCAM()
-    models.load_state_dict(torch.load('ENCAM_SIGMA025.pth',map_location='cuda:0'))
-    models.cuda()
-    models.eval()
-    return models
-
-def model_50():
-    models=ENCAM()
-    models.load_state_dict(torch.load('ENCAM_SIGMA050.pth',map_location='cuda:0'))
-    models.cuda()
-    models.eval()
-    return models
-def model_75():
-    models=ENCAM()
-    models.load_state_dict(torch.load('ENCAM_SIGMA075.pth',map_location='cuda:0'))
-    models.cuda()
-    models.eval()
-    return models
-def model_100():
-    models=ENCAM()
-    models.load_state_dict(torch.load('ENCAM_SIGMA100.pth',map_location='cuda:0'))
-    models.cuda()
-    models.eval()
-    return models
-def model_real():
-    # 'model_mnet6RES_048SIGMA055.pth', map_location = 'cuda:0
-    models=ENCAM()
-    models.load_state_dict(torch.load('ENCAM_rand_SIGMA075.pth',map_location='cuda:0'))
-    models.cuda()
-    models.eval()
-    return models
-
-def tests(tests,model):
-    tests=np.array(tests)
-
-    tests=tests.reshape(200,200,191)
-
-    k=15
-    cs = tests.shape[2]
-    print(cs)
-    tests = tests.astype(np.float32)
-    tests=tests.transpose((2,1,0))
-    test_out = np.zeros(tests.shape).astype(np.float32)
-
-    for channel_i in range(cs):
-        x = tests[channel_i, :, :]
-
-        x = np.expand_dims(x, axis=0)
-        x = np.expand_dims(x, axis=0)
-        if channel_i < k:
-            # print(channel_i)
-            y = tests[0:30, :, :]
-
-
-        elif channel_i < cs - k:
-
-            y = np.concatenate((tests[channel_i - k:channel_i, :, :],
-                                tests[channel_i + 1:channel_i + k + 1, :, :]))
-
-            # print(y.shape)
-        else:
-            y = tests[cs - 30:cs, :, :]
-
-        y = np.expand_dims(y, axis=0)
-        y = np.expand_dims(y, axis=0)
-        # x=x.astype('float32')/255.0
-        # y=y.astype('float32')/255.0
-        x = torch.from_numpy(x)
-        y = torch.from_numpy(y)
-        # x=x+torch.randn(x.size()).mul_(SIGMA/255.0)
-        # y=y+torch.randn(y.size()).mul_(SIGMA/255.0)
-        with torch.no_grad():
-
-            out = model(x.cuda(), y.cuda())
-
-        out = out.squeeze(0)
-
-        out = out.data.cpu().numpy()
-
-        test_out[channel_i, :, :] = out
-    test_out = test_out.transpose((2, 1, 0))
-    test_out=test_out.astype(np.double)
-    return test_out
-
-def model_test():
-    model = ENCAM()
-    #print(model)
-
-    x = torch.randn(16, 1, 20, 20)
-    y = torch.randn(16, 1, 30, 20, 20)
-
-    res = model(x, y)
-    print(res.shape)
-
-if __name__ == '__main__':
-    model_test()
