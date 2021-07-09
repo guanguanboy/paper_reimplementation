@@ -565,7 +565,7 @@ def train_model_residual_lowlight():
 
     tb_writer.close()
 
-from model_refactored import HSIDDenseNetTwoStage
+from model_refactored import HSIDDenseNetTwoStage,HSIDDenseNetTwoStageRDN
 from losses import CharbonnierLoss, EdgeLoss
 
 def train_model_residual_lowlight_twostage():
@@ -595,7 +595,7 @@ def train_model_residual_lowlight_twostage():
     denoised_hsi = np.zeros((width, height, band_num))
 
     #创建模型
-    net = HSIDDenseNetTwoStage(K)
+    net = HSIDDenseNetTwoStageRDN(K)
     init_params(net)
     #net = nn.DataParallel(net).to(device)
     net = net.to(device)
@@ -761,7 +761,7 @@ def train_model_residual_lowlight_twostage():
                 'epoch' : epoch,
                 'gen': net.state_dict(),
                 'gen_opt': hsid_optimizer.state_dict(),
-            }, f"checkpoints/two_stage_hsid_dense_best.pth")
+            }, f"checkpoints/two_stage_hsid_dense_rdn_best.pth")
 
         print("[epoch %d it %d PSNR: %.4f --- best_epoch %d best_iter %d Best_PSNR %.4f]" % (epoch, cur_step, psnr, best_epoch, best_iter, best_psnr))
 
