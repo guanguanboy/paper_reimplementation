@@ -460,7 +460,7 @@ def create_denseModel():
 def create_denoisedenseModel():
     # `num_channels`为当前的通道数
 
-    num_channels, growth_rate = 61, 20
+    num_channels, growth_rate = 60, 20
     num_convs_in_dense_blocks = [3, 3] #添加了两个dense_block
 
     blks = []
@@ -590,7 +590,7 @@ class HSIDDenseNetTwoStage(nn.Module):
 
         return output, refined_residual # + x_spatial
 
-<<<<<<< HEAD
+
 class HSIDDenseNetTwoStageWithPerPixelAttention(nn.Module):
     def __init__(self, k=24):
         super(HSIDDenseNetTwoStageWithPerPixelAttention, self).__init__()

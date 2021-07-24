@@ -559,5 +559,6 @@ if __name__ == '__main__':
     #train_model()
     #train_model_residual()
     #train_model_residual_lowlight()
-    train_model_residual_lowlight_twostage_gan()
+    #train_model_residual_lowlight_twostage_gan()
     #train_model_residual_lowlight_twostage_unet()
+    train_model_residual_lowlight_twostage_gan_best()
