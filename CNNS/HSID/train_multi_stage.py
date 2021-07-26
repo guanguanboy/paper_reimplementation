@@ -160,8 +160,8 @@ def train_model_multistage_lowlight():
             #loss = loss_fuction(denoised_img, label)
 
             residual = net(noisy, cubic)
-            loss = loss_fuction(residual, label-noisy)
-
+            #loss = loss_fuction(residual, label-noisy)
+            loss = np.sum([loss_fuction(residual[j], label) for j in range(len(residual))])
             loss.backward() # calcu gradient
             hsid_optimizer.step() # update parameter
 
@@ -204,7 +204,7 @@ def train_model_multistage_lowlight():
             with torch.no_grad():
 
                 residual = net(noisy_test, cubic_test)
-                denoised_band = noisy_test + residual
+                denoised_band = noisy_test + residual[0]
                 
                 denoised_band_numpy = denoised_band.cpu().numpy().astype(np.float32)
                 denoised_band_numpy = np.squeeze(denoised_band_numpy)
@@ -212,7 +212,7 @@ def train_model_multistage_lowlight():
                 denoised_hsi[:,:,batch_idx] = denoised_band_numpy
 
                 if batch_idx == 49:
-                    residual_squeezed = torch.squeeze(residual, axis=0)
+                    residual_squeezed = torch.squeeze(residual[0], axis=0)
                     denoised_band_squeezed = torch.squeeze(denoised_band, axis=0) 
                     label_test_squeezed = torch.squeeze(label_test,axis=0)
                     noisy_test_squeezed = torch.squeeze(noisy_test,axis=0)

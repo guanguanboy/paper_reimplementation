@@ -146,6 +146,12 @@ class MultiStageHSID(nn.Module):
         stage1_bot_left_residual = self.stage1_reconstruct_residual(stage1_bot_left_deep_feat)
         stage1_bot_right_residual = self.stage1_reconstruct_residual(stage1_bot_right_deep_feat)
 
+
+        ## 计算stage1 输出残差图像
+        stage1_top_residual = torch.cat([stage1_top_left_residual, stage1_top_right_residual], 3)
+        stage1_bot_residual = torch.cat([stage1_bot_left_residual, stage1_bot_right_residual], 3)
+        stage1_residual = torch.cat([stage1_top_residual, stage1_bot_residual],2)
+
         ## stage 1 复原图像
         stage1_top_left_restored = stage1_top_left_residual + stage1_top_left_spatial
         stage1_top_right_restored = stage1_top_right_residual + stage1_top_right_spatial
@@ -174,6 +180,9 @@ class MultiStageHSID(nn.Module):
         stage2_top_residual = self.stage2_reconstruct_residual(stage2_top_deep_feat)
         stage2_bot_residual = self.stage2_reconstruct_residual(stage2_bot_deep_feat)
 
+        ##计算stage2 输出残差图像
+        stage2_residual = torch.cat([stage2_top_residual, stage2_bot_residual], 2)
+
         ## stage2 复原图像
         stage2_top_restored = stage2_top_residual + stage2_top_spatial
         stage2_bot_restored = stage2_bot_residual + stage2_bot_spatial
@@ -194,7 +203,7 @@ class MultiStageHSID(nn.Module):
         ## stage3 复原图像
         stage3_restored = stage3_residual + x_spatial
 
-        return stage3_residual
+        return stage3_residual,stage2_residual,stage1_residual
 
 def multi_stage_model_test():
     ms_model = MultiStageHSID(36)
@@ -204,7 +213,7 @@ def multi_stage_model_test():
 
     residual = ms_model(spatial_data, spectral_data)
 
-    print(residual.shape)
+    print(residual[2].shape)
 
 
 if __name__ == "__main__":
