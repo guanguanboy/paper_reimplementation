@@ -102,6 +102,9 @@ class MultiStageHSID(nn.Module):
         self.concat12 = nn.Conv2d(180, 120, kernel_size=1)
         self.concat23 = nn.Conv2d(180, 120, kernel_size=1)
 
+        self.stage1_refine_residual = nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=1)
+        self.stage2_refine_residual = nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=1)
+
     def forward(self, x_spatial, x_spectral):
         #第3 stage中输入图像分辨率的大小
         image_height = x_spatial.shape[2]
@@ -150,7 +153,8 @@ class MultiStageHSID(nn.Module):
         ## 计算stage1 输出残差图像
         stage1_top_residual = torch.cat([stage1_top_left_residual, stage1_top_right_residual], 3)
         stage1_bot_residual = torch.cat([stage1_bot_left_residual, stage1_bot_right_residual], 3)
-        stage1_residual = torch.cat([stage1_top_residual, stage1_bot_residual],2)
+        stage1_residual_cat = torch.cat([stage1_top_residual, stage1_bot_residual],2)
+        stage1_residual = self.stage1_refine_residual(stage1_residual_cat)
 
         ## stage 1 复原图像
         stage1_top_left_restored = stage1_top_left_residual + stage1_top_left_spatial
@@ -181,8 +185,10 @@ class MultiStageHSID(nn.Module):
         stage2_bot_residual = self.stage2_reconstruct_residual(stage2_bot_deep_feat)
 
         ##计算stage2 输出残差图像
-        stage2_residual = torch.cat([stage2_top_residual, stage2_bot_residual], 2)
+        stage2_residual_cat = torch.cat([stage2_top_residual, stage2_bot_residual], 2)
 
+        stage2_residual = self.stage2_refine_residual(stage2_residual_cat)
+        
         ## stage2 复原图像
         stage2_top_restored = stage2_top_residual + stage2_top_spatial
         stage2_bot_restored = stage2_bot_residual + stage2_bot_spatial
