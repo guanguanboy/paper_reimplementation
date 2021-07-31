@@ -73,7 +73,7 @@ def predict_lowlight_residual():
                 adj_spectral_bands = adj_spectral_bands.permute(0, 3,1,2)#交换第一维和第三维 ，shape: batch_size, band_num, height, width               
                 adj_spectral_bands = adj_spectral_bands.to(DEVICE)
                 residual = hsid(current_noisy_band, adj_spectral_bands)
-                denoised_band = current_noisy_band + residual
+                denoised_band = current_noisy_band + residual[0]
 
                 denoised_band_numpy = denoised_band.cpu().numpy().astype(np.float32)
                 denoised_band_numpy = np.squeeze(denoised_band_numpy)
