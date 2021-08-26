@@ -18,8 +18,8 @@ import os
 #设置超参数
 NUM_EPOCHS =70
 BATCH_SIZE = 128
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
-DEVICE = "cuda:2" if torch.cuda.is_available() else "cpu"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
 INIT_LEARNING_RATE = 0.0001
 K = 30
 display_step = 20
@@ -27,7 +27,7 @@ display_step = 20
 #设置随机种子
 seed = 200
 torch.manual_seed(seed)
-if DEVICE == 'cuda:2':
+if DEVICE == 'cuda:0':
     torch.cuda.manual_seed(seed)
 
 class sum_squared_error(_Loss):  # PyTorch 0.4.1
@@ -104,6 +104,7 @@ def train_model_residual_lowlight():
         net.train()
         #for batch_idx, (noisy, cubic, label) in enumerate([first_batch] * 300):
         for batch_idx, (noisy, cubic, label) in enumerate(train_loader):
+            #noisy, cubic, label = next(iter(train_loader)) #从dataloader中取出一个batch
             #print('batch_idx=', batch_idx)
             noisy = noisy.to(device)
             label = label.to(device)
@@ -145,7 +146,7 @@ def train_model_residual_lowlight():
         }, f"checkpoints/encam_{epoch}.pth")
 
         #测试代码
-        """
+        
         net.eval()
         for batch_idx, (noisy_test, cubic_test, label_test) in enumerate(test_dataloader):
             noisy_test = noisy_test.type(torch.FloatTensor)
@@ -158,14 +159,36 @@ def train_model_residual_lowlight():
 
             with torch.no_grad():
 
-                #denoised_band = net(noisy_test, cubic_test)
-                residual = net(noisy_test, cubic_test)
-                denoised_band = noisy_test + residual
+               #这里需要将current_noisy_band和adj_spectral_bands拆分成4份，每份大小为batchsize，1， band_num , height/2, width/2
+                current_noisy_band_00 = noisy_test[:,:, 0:noisy_test.shape[2]//2, 0:noisy_test.shape[3]//2]
+                adj_spectral_bands_00 = cubic_test[:,:,:, 0:cubic_test.shape[3]//2, 0:cubic_test.shape[4]//2]
+                residual_00 = net(current_noisy_band_00, adj_spectral_bands_00)
+                denoised_band_00 = current_noisy_band_00 + residual_00
+
+                current_noisy_band_00 = noisy_test[:,:, 0:noisy_test.shape[2]//2, 0:noisy_test.shape[3]//2]
+                adj_spectral_bands_00 = cubic_test[:,:,:, 0:cubic_test.shape[3]//2, 0:cubic_test.shape[4]//2]
+                residual_00 = net(current_noisy_band_00, adj_spectral_bands_00)
+                denoised_band_01 = current_noisy_band_00 + residual_00
+
+                current_noisy_band_00 = noisy_test[:,:, 0:(noisy_test.shape[2]//2), 0:(noisy_test.shape[3]//2)]
+                adj_spectral_bands_00 = cubic_test[:,:,:, 0:cubic_test.shape[3]//2, 0:cubic_test.shape[4]//2]
+                residual_00 = net(current_noisy_band_00, adj_spectral_bands_00)
+                denoised_band_10 = current_noisy_band_00 + residual_00
+
+                current_noisy_band_00 = noisy_test[:,:, 0:noisy_test.shape[2]//2, 0:noisy_test.shape[3]//2]
+                adj_spectral_bands_11 = cubic_test[:,:,:, 0:cubic_test.shape[3]//2, 0:cubic_test.shape[4]//2]
+                residual_00 = net(current_noisy_band_00, adj_spectral_bands_00)
+                denoised_band_11 = current_noisy_band_00 + residual_00
+
+                denoised_band_0 = torch.cat((denoised_band_00,denoised_band_01), dim=3)
+                denoised_band_1 = torch.cat((denoised_band_10,denoised_band_11), dim=3)
+                denoised_band = torch.cat((denoised_band_0, denoised_band_1),dim=2)
                 
                 denoised_band_numpy = denoised_band.cpu().numpy().astype(np.float32)
                 denoised_band_numpy = np.squeeze(denoised_band_numpy)
 
                 denoised_hsi[:,:,batch_idx] = denoised_band_numpy
+
 
         psnr = PSNR(denoised_hsi, test_label_hsi)
         ssim = SSIM(denoised_hsi, test_label_hsi)
@@ -177,7 +200,7 @@ def train_model_residual_lowlight():
                         'average SSIM':ssim,
                         'avarage SAM': sam}, epoch) #通过这个我就可以看到，那个epoch的性能是最好的
 
-        """
+        
     tb_writer.close()
 
 if __name__ == '__main__':

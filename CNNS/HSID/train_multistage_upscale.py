@@ -27,8 +27,8 @@ import time
 #设置超参数
 NUM_EPOCHS =100
 BATCH_SIZE = 256
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
-DEVICE = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 INIT_LEARNING_RATE = 0.001
 K = 36
 display_step = 20

@@ -25,7 +25,7 @@ def predict_lowlight_residual():
     encam = encam.to(DEVICE)
 
     encam.eval()
-    encam.load_state_dict(torch.load('./checkpoints/encam_69.pth', map_location='cuda:0')['gen'])
+    encam.load_state_dict(torch.load('./checkpoints/encam_0.pth', map_location='cuda:0')['gen'])
 
     #加载数据
     mat_src_path = '../HSID/data/test_lowlight/origin/soup_bigcorn_orange_1ms.mat'
