@@ -1,41 +1,56 @@
+from matplotlib.pyplot import axis, imshow
 import torch
 import torch.nn as nn
+from torch.utils.data.dataset import ConcatDataset
 
-from model import ENCAM
+from model import HSID,HSIDNoLocal,HSIDCA,HSIDRes,TwoStageHSID
 import torch.optim as optim
+from torchvision import transforms, datasets
 from tqdm import tqdm
-from torch.optim.lr_scheduler import MultiStepLR
-import numpy as np
-import scipy.io as scio
-from helper.helper_utils import init_params, get_summary_writer
-from metrics import PSNR, SSIM, SAM
+from utils import get_adjacent_spectral_bands
+from hsidataset import HsiTrainDataset
 from torch.utils.data import DataLoader
-from hsidataset import HsiCubicTrainDataset, HsiCubicLowlightTestDataset
-from torch.nn.modules.loss import _Loss
+from torch.utils.tensorboard import SummaryWriter
+from helper.helper_utils import init_params, get_summary_writer
 import os
+from torch.optim.lr_scheduler import MultiStepLR
+from torch.nn.modules.loss import _Loss
+from hsidataset import HsiCubicTrainDataset
+import numpy as np
+from metrics import PSNR, SSIM, SAM
+from hsidataset import HsiCubicTestDataset,HsiCubicLowlightTestDataset
+import scipy.io as scio
+from losses import EdgeLoss
+from tvloss import TVLoss
+#from warmup_scheduler import GradualWarmupScheduler
+from dir_utils import *
+from model_utils import *
+import time
 
 #设置超参数
-#设置超参数
-NUM_EPOCHS =70
-BATCH_SIZE = 108
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
-INIT_LEARNING_RATE = 0.0001
-K = 30
+NUM_EPOCHS =100
+BATCH_SIZE = 64
+#os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
+DEVICE = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+INIT_LEARNING_RATE = 0.001
+K = 36
 display_step = 20
+display_band = 20
+RESUME = False
 
 #设置随机种子
 seed = 200
-torch.manual_seed(seed)
-if DEVICE == 'cuda:0':
-    torch.cuda.manual_seed(seed)
+torch.manual_seed(seed) #在CPU上设置随机种子
+if DEVICE == 'cuda:1':
+    torch.cuda.manual_seed(seed) #在当前GPU上设置随机种子
+    torch.cuda.manual_seed_all(seed)#为所有GPU设置随机种子
 
 class sum_squared_error(_Loss):  # PyTorch 0.4.1
     """
     Definition: sum_squared_error = 1/2 * nn.MSELoss(reduction = 'sum')
     The backward is defined as: input-target
     """
-    def __init__(self, size_average=None, reduce=None, reduction='sum'):
+    def __init__(self, size_average=None, reduce=None, reduction='mean'):
         super(sum_squared_error, self).__init__(size_average, reduce, reduction)
 
     def forward(self, input, target):
@@ -45,24 +60,56 @@ class sum_squared_error(_Loss):  # PyTorch 0.4.1
 def loss_fuction(x,y):
     MSEloss=sum_squared_error()
     loss1=MSEloss(x,y)
+
     return loss1
 
-def train_model_residual_lowlight():
+def loss_function_new(x, y):
+    mseloss = nn.MSELoss()
+    loss = mseloss(x, y)
+    return loss
 
+def loss_fuction_with_edge(x,y):
+    MSEloss=sum_squared_error()
+    loss1=MSEloss(x,y)
+    edgeloss = EdgeLoss()
+    loss2 = edgeloss(x, y)
+
+    return loss1 + loss2
+
+def loss_function_with_tvloss(x,y):
+    MSEloss=sum_squared_error()
+    tvloss = TVLoss()
+    loss1=MSEloss(x,y)
+    loss2 = tvloss(x)
+
+    return loss1 + loss2
+
+recon_criterion = nn.L1Loss() 
+
+from model_hrnet import HyperHRNet
+
+def train_model_residual_lowlight():
+    
     device = DEVICE
     #准备数据
-    train_set = HsiCubicTrainDataset('../HSID/data/train_lowlight/')
+    train_set = HsiCubicTrainDataset('./data/train_lowlight_patchsize64_train10/')
+    #print('trainset32 training example:', len(train_set32))
+
+    #train_set_64 = HsiCubicTrainDataset('./data/train_lowlight_patchsize64/')
+
+    #train_set_list = [train_set32, train_set_64]
+    #train_set = ConcatDataset(train_set_list) #里面的样本大小必须是一致的，否则会连接失败
     print('total training example:', len(train_set))
 
     train_loader = DataLoader(dataset=train_set, batch_size=BATCH_SIZE, shuffle=True)
     
     #加载测试label数据
-    mat_src_path = '../HSID/data/test_lowlight/origin/soup_bigcorn_orange_1ms.mat'
+    mat_src_path = './data/test_lowlight/origin/soup_bigcorn_orange_1ms.mat'
     test_label_hsi = scio.loadmat(mat_src_path)['label']
 
     #加载测试数据
     batch_size = 1
-    test_data_dir = '../HSID/data/test_lowlight/cubic/'
+    test_data_dir = './data/test_lowlight/cubic/'
     test_set = HsiCubicLowlightTestDataset(test_data_dir)
     test_dataloader = DataLoader(dataset=test_set, batch_size=batch_size, shuffle=False)
 
@@ -72,16 +119,15 @@ def train_model_residual_lowlight():
     denoised_hsi = np.zeros((width, height, band_num))
 
     #创建模型
-    net = ENCAM()
-    #init_params(net) #创建encam时，已经通过self._initialize_weights()进行了初始化
+    net = HyperHRNet(K)
+    init_params(net)
+    #net = nn.DataParallel(net).to(device)
     net = net.to(device)
-    #net = nn.DataParallel(net)
-    #net = net.to(device)
 
     #创建优化器
     #hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE, betas=(0.9, 0,999))
     hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE)
-    scheduler = MultiStepLR(hsid_optimizer, milestones=[15,30,45], gamma=0.1)
+    scheduler = MultiStepLR(hsid_optimizer, milestones=[40,60,80], gamma=0.1)
 
     #定义loss 函数
     #criterion = nn.MSELoss()
@@ -98,16 +144,19 @@ def train_model_residual_lowlight():
     best_psnr = 0
     best_epoch = 0
     best_iter = 0
+    start_epoch = 1
+    num_epoch = 100
 
-    for epoch in range(NUM_EPOCHS):
+    for epoch in range(start_epoch, num_epoch+1):
+        epoch_start_time = time.time()
         scheduler.step()
         print(epoch, 'lr={:.6f}'.format(scheduler.get_last_lr()[0]))
+        print(scheduler.get_lr())
         gen_epoch_loss = 0
 
         net.train()
-        #for batch_idx, (noisy, cubic, label) in enumerate([first_batch] * 300):
+        #for batch_idx, (noisy, label) in enumerate([first_batch] * 300):
         for batch_idx, (noisy, cubic, label) in enumerate(train_loader):
-            #noisy, cubic, label = next(iter(train_loader)) #从dataloader中取出一个batch
             #print('batch_idx=', batch_idx)
             noisy = noisy.to(device)
             label = label.to(device)
@@ -118,7 +167,7 @@ def train_model_residual_lowlight():
             #loss = loss_fuction(denoised_img, label)
 
             residual = net(noisy, cubic)
-            loss = loss_fuction(residual+noisy, label)
+            loss = loss_function_new(residual, label-noisy)
 
             loss.backward() # calcu gradient
             hsid_optimizer.step() # update parameter
@@ -142,14 +191,13 @@ def train_model_residual_lowlight():
 
         #scheduler.step()
         #print("Decaying learning rate to %g" % scheduler.get_last_lr()[0])
-
+ 
         torch.save({
             'gen': net.state_dict(),
             'gen_opt': hsid_optimizer.state_dict(),
-        }, f"checkpoints/encam_{epoch}.pth")
+        }, f"checkpoints/hsid_hsid_refactored_patchsize64_{epoch}.pth")
 
         #测试代码
-        
         net.eval()
         for batch_idx, (noisy_test, cubic_test, label_test) in enumerate(test_dataloader):
             noisy_test = noisy_test.type(torch.FloatTensor)
@@ -162,36 +210,23 @@ def train_model_residual_lowlight():
 
             with torch.no_grad():
 
-               #这里需要将current_noisy_band和adj_spectral_bands拆分成4份，每份大小为batchsize，1， band_num , height/2, width/2
-                current_noisy_band_00 = noisy_test[:,:, 0:noisy_test.shape[2]//2, 0:noisy_test.shape[3]//2]
-                adj_spectral_bands_00 = cubic_test[:,:,:, 0:cubic_test.shape[3]//2, 0:cubic_test.shape[4]//2]
-                residual_00 = net(current_noisy_band_00, adj_spectral_bands_00)
-                denoised_band_00 = current_noisy_band_00 + residual_00
-
-                current_noisy_band_01 = noisy_test[:,:, 0:noisy_test.shape[2]//2, noisy_test.shape[3]//2:noisy_test.shape[3]]
-                adj_spectral_bands_01 = cubic_test[:,:,:, 0:cubic_test.shape[3]//2, cubic_test.shape[4]//2:cubic_test.shape[4]]
-                residual_01 = net(current_noisy_band_01, adj_spectral_bands_01)
-                denoised_band_01 = current_noisy_band_01 + residual_01
-
-                current_noisy_band_10 = noisy_test[:,:, noisy_test.shape[2]//2:noisy_test.shape[2], 0:(noisy_test.shape[3]//2)]
-                adj_spectral_bands_10 = cubic_test[:,:,:, cubic_test.shape[3]//2:cubic_test.shape[3], 0:cubic_test.shape[4]//2]
-                residual_10 = net(current_noisy_band_10, adj_spectral_bands_10)
-                denoised_band_10 = current_noisy_band_10 + residual_10
-
-                current_noisy_band_11 = noisy_test[:,:, noisy_test.shape[2]//2:noisy_test.shape[2], noisy_test.shape[3]//2:noisy_test.shape[3]]
-                adj_spectral_bands_11 = cubic_test[:,:,:, cubic_test.shape[3]//2:cubic_test.shape[3], cubic_test.shape[4]//2:cubic_test.shape[4]]
-                residual_11 = net(current_noisy_band_11, adj_spectral_bands_11)
-                denoised_band_11 = current_noisy_band_11 + residual_11
-
-                denoised_band_0 = torch.cat((denoised_band_00,denoised_band_01), dim=3)
-                denoised_band_1 = torch.cat((denoised_band_10,denoised_band_11), dim=3)
-                denoised_band = torch.cat((denoised_band_0, denoised_band_1),dim=2)
+                residual = net(noisy_test, cubic_test)
+                denoised_band = noisy_test + residual
                 
                 denoised_band_numpy = denoised_band.cpu().numpy().astype(np.float32)
                 denoised_band_numpy = np.squeeze(denoised_band_numpy)
 
                 denoised_hsi[:,:,batch_idx] = denoised_band_numpy
 
+                if batch_idx == 49:
+                    residual_squeezed = torch.squeeze(residual, axis=0)
+                    denoised_band_squeezed = torch.squeeze(denoised_band, axis=0) 
+                    label_test_squeezed = torch.squeeze(label_test,axis=0)
+                    noisy_test_squeezed = torch.squeeze(noisy_test,axis=0)
+                    tb_writer.add_image(f"images/{epoch}_restored", denoised_band_squeezed, 1, dataformats='CHW')
+                    tb_writer.add_image(f"images/{epoch}_residual", residual_squeezed, 1, dataformats='CHW')
+                    tb_writer.add_image(f"images/{epoch}_label", label_test_squeezed, 1, dataformats='CHW')
+                    tb_writer.add_image(f"images/{epoch}_noisy", noisy_test_squeezed, 1, dataformats='CHW')
 
         psnr = PSNR(denoised_hsi, test_label_hsi)
         ssim = SSIM(denoised_hsi, test_label_hsi)
@@ -209,16 +244,31 @@ def train_model_residual_lowlight():
             best_epoch = epoch
             best_iter = cur_step
             torch.save({
-            'gen': net.state_dict(),
-            'gen_opt': hsid_optimizer.state_dict(),
-            }, f"checkpoints/encam_best.pth")
+                'epoch' : epoch,
+                'gen': net.state_dict(),
+                'gen_opt': hsid_optimizer.state_dict(),
+            }, f"checkpoints/hsid_refactored_patchsize64_best.pth")
 
         print("[epoch %d it %d PSNR: %.4f --- best_epoch %d best_iter %d Best_PSNR %.4f]" % (epoch, cur_step, psnr, best_epoch, best_iter, best_psnr))
-        
+
+        print("------------------------------------------------------------------")
+        print("Epoch: {}\tTime: {:.4f}\tLoss: {:.4f}\tLearningRate {:.6f}".format(epoch, time.time()-epoch_start_time, gen_epoch_loss, scheduler.get_lr()[0]))
+        print("------------------------------------------------------------------")
+
+        #保存当前模型
+        torch.save({'epoch': epoch, 
+                    'gen': net.state_dict(),
+                    'gen_opt': hsid_optimizer.state_dict()
+                    }, os.path.join('./checkpoints',"model_latest.pth"))
     tb_writer.close()
+
 
 if __name__ == '__main__':
     #main()
     #train_model()
     #train_model_residual()
     train_model_residual_lowlight()
+    #train_model_residual_lowlight_twostage()
+    #train_model_residual_lowlight_twostage_unet()
+    #train_model_residual_lowlight_twostage_dataaugmentation()
+    #train_model_residual_lowlight_twostage_best()
