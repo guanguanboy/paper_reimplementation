@@ -47,6 +47,11 @@ def loss_fuction(x,y):
     loss1=MSEloss(x,y)
     return loss1
 
+def loss_function_new(x, y):
+    mseloss = nn.MSELoss()
+    loss = mseloss(x, y)
+    return loss
+
 def train_model_residual_lowlight():
 
     device = DEVICE
@@ -118,7 +123,7 @@ def train_model_residual_lowlight():
             #loss = loss_fuction(denoised_img, label)
 
             residual = net(noisy, cubic)
-            loss = loss_fuction(residual+noisy, label)
+            loss = loss_function_new(residual, label-noisy)
 
             loss.backward() # calcu gradient
             hsid_optimizer.step() # update parameter
