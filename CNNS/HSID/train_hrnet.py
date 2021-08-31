@@ -195,7 +195,7 @@ def train_model_residual_lowlight():
         torch.save({
             'gen': net.state_dict(),
             'gen_opt': hsid_optimizer.state_dict(),
-        }, f"checkpoints/hsid_hsid_refactored_patchsize64_{epoch}.pth")
+        }, f"checkpoints/hrnet_patchsize64_{epoch}.pth")
 
         #测试代码
         net.eval()
@@ -247,7 +247,7 @@ def train_model_residual_lowlight():
                 'epoch' : epoch,
                 'gen': net.state_dict(),
                 'gen_opt': hsid_optimizer.state_dict(),
-            }, f"checkpoints/hsid_refactored_patchsize64_best.pth")
+            }, f"checkpoints/hrnet_patchsize64_best.pth")
 
         print("[epoch %d it %d PSNR: %.4f --- best_epoch %d best_iter %d Best_PSNR %.4f]" % (epoch, cur_step, psnr, best_epoch, best_iter, best_psnr))
 
