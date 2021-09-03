@@ -14,7 +14,7 @@ from torch.utils.tensorboard import SummaryWriter
 from helper.helper_utils import init_params, get_summary_writer
 import os
 from torch.optim.lr_scheduler import MultiStepLR
-from torch.nn.modules.loss import _Loss
+from torch.nn.modules.loss import MSELoss, _Loss
 from hsidataset import HsiCubicTrainDataset
 import numpy as np
 from metrics import PSNR, SSIM, SAM
@@ -64,6 +64,11 @@ def loss_fuction(x,y):
     loss1=MSEloss(x,y)
 
     return loss1
+
+def loss_function_mse(x, y):
+    MSELoss = nn.MSELoss()
+    loss = MSELoss(x, y)
+    return loss
 
 def loss_fuction_with_edge(x,y):
     MSEloss=sum_squared_error()
@@ -196,7 +201,7 @@ def train_model_residual_lowlight_twostage_gan_best():
                 fake,fake_stage2 = net(noisy, cubic)
             #print('noisy shape =', noisy.shape, fake_stage2.shape)
             #fake.detach()
-            disc_fake_hat = disc(fake_stage2.detach(), noisy) # Detach generator
+            disc_fake_hat = disc(fake_stage2.detach()+noisy, noisy) # Detach generator
             disc_fake_loss = adv_criterion(disc_fake_hat, torch.zeros_like(disc_fake_hat))
             disc_real_hat = disc(label, noisy)
             disc_real_loss = adv_criterion(disc_real_hat, torch.ones_like(disc_real_hat))
@@ -210,7 +215,7 @@ def train_model_residual_lowlight_twostage_gan_best():
             #loss = loss_fuction(denoised_img, label)
 
             residual, residual_stage2 = net(noisy, cubic)
-            disc_fake_hat = disc(residual_stage2, noisy)
+            disc_fake_hat = disc(residual_stage2+noisy, noisy)
             gen_adv_loss = adv_criterion(disc_fake_hat, torch.ones_like(disc_fake_hat))  
 
             alpha = 0.2
