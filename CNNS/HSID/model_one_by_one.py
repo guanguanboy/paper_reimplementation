@@ -296,26 +296,16 @@ class EnlightenHyperSpectralNet(nn.Module):
         tb_writer.close()
 
 
-    def load(self, ckpt_dir):
-        load_dir = ckpt_dir + '/' + self.train_phase + '/'
-        if os.path.exists(load_dir):
-            load_ckpts = os.listdir(load_dir)
-            if len(load_ckpts) > 0:
-                if self.train_phase == DENOISE_PHASE:
-                    ckpt_dict = torch.load(load_dir + "enlighten_hyper_hsid_best.pth")
-                    self.hsid.load_state_dict(ckpt_dict['hsid'])
-                elif self.train_phase == ENLIGHTEN_PHASE:
-                    ckpt_dict = torch.load(load_dir + "enlighten_hyper_hsid_best.pth")
-                    self.hsid.load_state_dict(ckpt_dict['hsid'])
-                    ckpt_dict = torch.load(load_dir + "enlighten_hyper_enlighter_best.pth")
-                    self.relight_net.load_state_dict(ckpt_dict['enlighter'])
-            else:
-                if self.train_phase == DENOISE_PHASE:
-                    init_params(self.hsid)
-                elif self.train_phase == ENLIGHTEN_PHASE:
-                    ckpt_dict = torch.load(load_dir + "enlighten_hyper_hsid_best.pth")
-                    self.hsid.load_state_dict(ckpt_dict['hsid'])
-                    init_params(self.relight_net)
+    def load_model(self, ckpt_dir, device):
+        load_hsid_dir = ckpt_dir + '/' + DENOISE_PHASE + '/'
+        if os.path.exists(load_hsid_dir):
+            ckpt_dict = torch.load(load_hsid_dir + "enlighten_hyper_hsid_best.pth", map_location=device)
+            self.hsid.load_state_dict(ckpt_dict['hsid'])
+            
+        load_enlighter_dir = ckpt_dir + '/' + ENLIGHTEN_PHASE + '/'
+        if os.path.exists(load_enlighter_dir):
+            ckpt_dict = torch.load(load_enlighter_dir + "enlighten_hyper_enlighter_best.pth", map_location=device)
+            self.relight_net.load_state_dict(ckpt_dict['enlighter'])        
 
     def init_model(self, ckpt_dir):
         if self.train_phase == DENOISE_PHASE:
