@@ -21,7 +21,7 @@ import numpy as np
 from metrics import PSNR, SSIM, SAM
 from hsidataset import HsiCubicTestDataset,HsiCubicLowlightTestDataset
 import scipy.io as scio
-from losses import EdgeLoss
+from losses import EdgeLoss, VGGLoss
 from tvloss import TVLoss
 #from warmup_scheduler import GradualWarmupScheduler
 from dir_utils import *
@@ -80,6 +80,11 @@ def loss_function_with_tvloss(x,y):
 
     return loss1 + loss2
 
+def loss_function_mse(x, y):
+    MSELoss = nn.MSELoss()
+    loss = MSELoss(x, y)
+    return loss
+    
 recon_criterion = nn.L1Loss() 
 
 from model_stage2_unet import HSIDDenseNetTwoStageUNet
@@ -286,6 +291,7 @@ from Discriminator_copy import DiscriminatorABC
 adv_criterion = nn.BCEWithLogitsLoss() 
 recon_criterion = nn.L1Loss() 
 lambda_recon = 10
+vgg_loss = VGGLoss().cuda(device=DEVICE)
 
 def train_model_residual_lowlight_twostage_gan_best():
 
@@ -413,11 +419,12 @@ def train_model_residual_lowlight_twostage_gan_best():
             gen_adv_loss = adv_criterion(disc_fake_hat, torch.ones_like(disc_fake_hat))  
 
             alpha = 0.2
-            beta = 0.8          
+            beta = 0.8    
+            vgg_loss_value = 1000 * vgg_loss((noisy + residual_stage2).repeat(1, 3, 1, 1), label.repeat(1, 3, 1, 1))      
             rec_loss = beta * (alpha*loss_fuction(residual, label-noisy) + (1-alpha) * recon_criterion(residual, label-noisy)) \
-             + (1-beta) * ((1-alpha)*loss_fuction(residual_stage2, label-noisy) + alpha * recon_criterion(residual_stage2, label-noisy))
-
-            loss = 2 * gen_adv_loss + 8 * rec_loss
+             + (1-beta) * ((1-alpha)*loss_fuction(residual_stage2, label-noisy) + alpha * recon_criterion(residual_stage2, label-noisy)) \
+            
+            loss = 2 * gen_adv_loss + 8 * rec_loss + 8 * vgg_loss_value
 
             loss.backward() # calcu gradient
             hsid_optimizer.step() # update parameter
@@ -427,6 +434,7 @@ def train_model_residual_lowlight_twostage_gan_best():
             if cur_step % display_step == 0:
                 if cur_step > 0:
                     print(f"Epoch {epoch}: Step {cur_step}: Batch_idx {batch_idx}: MSE loss: {loss.item()}")
+                    print(f"vgg_loss = {vgg_loss_value.item()}, rec_loss =  {rec_loss.item()}, gen_adv_loss = {gen_adv_loss.item()}")
                 else:
                     print("Pretrained initial state")
 
