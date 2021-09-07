@@ -70,7 +70,7 @@ def predict_lowlight_one_by_one_model():
         with torch.no_grad():
 
             residual,residual_stage2 = enlighten_hyper_net(noisy_test, cubic_test)
-            denoised_band = noisy_test + residual_stage2
+            denoised_band = noisy_test + residual_stage2 + residual
             
             denoised_band_numpy = denoised_band.cpu().numpy().astype(np.float32)
             denoised_band_numpy = np.squeeze(denoised_band_numpy)

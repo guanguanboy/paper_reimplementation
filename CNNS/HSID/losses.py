@@ -140,3 +140,39 @@ class MS_SSIM_L1_LOSS(nn.Module):
 
         return loss_mix.mean()
 
+
+import torch
+import torch.nn as nn
+from torchvision.models import vgg19
+
+
+# phi_5,4 5th conv layer before maxpooling but after activation
+
+#下面这个loss将输入图像的shape的长宽各缩小了16倍。并且要求输入的input和target的shape是一样的。
+class VGGLoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.vgg = vgg19(pretrained=True).features[:36].eval()
+        self.loss = nn.MSELoss()
+
+        for param in self.vgg.parameters():
+            param.requires_grad = False
+
+    def forward(self, input, target):
+        vgg_input_features = self.vgg(input)
+        #print('vgg_input_features.shape = ', vgg_input_features.shape)
+        vgg_target_features = self.vgg(target)
+        #print('vgg_target_features.shape = ', vgg_target_features.shape)
+        return self.loss(vgg_input_features, vgg_target_features)
+
+def vgg_loss_test():
+    perceptual_loss = VGGLoss()
+
+    input_tensor = torch.randn(1, 3, 48, 48)
+    target_tensor = torch.randn(1, 3, 48, 48)
+
+    loss = perceptual_loss(input_tensor, target_tensor)
+    print(loss)
+
+if __name__ == "__main__":
+    vgg_loss_test()

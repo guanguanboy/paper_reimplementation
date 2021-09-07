@@ -260,8 +260,9 @@ class EnlightenHyperSpectralNet(nn.Module):
                     self.hsid_optimizer.step() # update parameter
 
                 else:
-                    hsid_restored = noisy + hsid_residual.detach()
-                    loss = enlighten_loss(enlighter_residual, label-hsid_restored)
+                    #hsid_restored = noisy + hsid_residual.detach()
+                    hsid_residual.detach()
+                    loss = enlighten_loss(enlighter_residual, label)
                     self.enlighter_optimizer.zero_grad()
                     loss.backward() # calcu gradient
                     self.enlighter_optimizer.step() # update parameter
@@ -372,7 +373,7 @@ class EnlightenHyperSpectralNet(nn.Module):
                 if self.train_phase == DENOISE_PHASE:
                     denoised_band = noisy_test + hsid_residual
                 elif self.train_phase == ENLIGHTEN_PHASE:
-                    denoised_band = noisy_test + hsid_residual + enlightened_residual
+                    denoised_band = enlightened_residual
                 
                 denoised_band_numpy = denoised_band.cpu().numpy().astype(np.float32)
                 denoised_band_numpy = np.squeeze(denoised_band_numpy)
