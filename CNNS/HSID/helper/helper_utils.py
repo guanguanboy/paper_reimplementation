@@ -62,3 +62,6 @@ def init_params(net, init_type='kn'):
                 init.normal_(m.weight, std=1e-3)
                 if m.bias is not None:
                     init.constant_(m.bias, 0)
+            elif isinstance(m, nn.LayerNorm):
+                nn.init.constant_(m.bias, 0)
+                nn.init.constant_(m.weight, 1.0)

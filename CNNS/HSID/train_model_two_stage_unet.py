@@ -84,7 +84,7 @@ def loss_function_mse(x, y):
     MSELoss = nn.MSELoss()
     loss = MSELoss(x, y)
     return loss
-    
+
 recon_criterion = nn.L1Loss() 
 
 from model_stage2_unet import HSIDDenseNetTwoStageUNet
@@ -420,11 +420,11 @@ def train_model_residual_lowlight_twostage_gan_best():
 
             alpha = 0.2
             beta = 0.8    
-            vgg_loss_value = 1000 * vgg_loss((noisy + residual_stage2).repeat(1, 3, 1, 1), label.repeat(1, 3, 1, 1))      
-            rec_loss = beta * (alpha*loss_fuction(residual, label-noisy) + (1-alpha) * recon_criterion(residual, label-noisy)) \
-             + (1-beta) * ((1-alpha)*loss_fuction(residual_stage2, label-noisy) + alpha * recon_criterion(residual_stage2, label-noisy)) \
+            vgg_loss_value = 100 * vgg_loss((noisy + residual_stage2).repeat(1, 3, 1, 1), label.repeat(1, 3, 1, 1))      
+            rec_loss = beta * (alpha*loss_function_mse(residual, label-noisy) + (1-alpha) * recon_criterion(residual, label-noisy)) \
+             + (1-beta) * ((1-alpha)*loss_function_mse(residual_stage2, label-noisy) + alpha * recon_criterion(residual_stage2, label-noisy)) \
             
-            loss = 2 * gen_adv_loss + 8 * rec_loss + 8 * vgg_loss_value
+            loss = 1 * gen_adv_loss + 180 * rec_loss + 19 * vgg_loss_value
 
             loss.backward() # calcu gradient
             hsid_optimizer.step() # update parameter
