@@ -26,6 +26,7 @@ from tvloss import TVLoss
 from dir_utils import *
 from model_utils import *
 import time
+from genericpath import exists
 
 #设置超参数
 NUM_EPOCHS =100
@@ -85,6 +86,11 @@ from model_swin_transformer import SwinIR
 def train_model_residual_lowlight_transformer():
 
     device = DEVICE
+
+    save_model_path = './checkpoints/swinIR'
+    if not exists(save_model_path):
+        os.mkdir(save_model_path)
+
     #准备数据
     train_set = HsiCubicTrainDataset('./data/train_lowlight/')
     #print('trainset32 training example:', len(train_set32))
@@ -193,7 +199,7 @@ def train_model_residual_lowlight_transformer():
         torch.save({
             'gen': net.state_dict(),
             'gen_opt': hsid_optimizer.state_dict(),
-        }, f"checkpoints/hsid_hsid_refactored_patchsize64_{epoch}.pth")
+        }, f"{save_model_path}/swinIR_patchsize20_{epoch}.pth")
 
         #测试代码
         net.eval()
@@ -245,7 +251,7 @@ def train_model_residual_lowlight_transformer():
                 'epoch' : epoch,
                 'gen': net.state_dict(),
                 'gen_opt': hsid_optimizer.state_dict(),
-            }, f"checkpoints/hsid_refactored_patchsize64_best.pth")
+            }, f"{save_model_path}/swinIR_patchsize20_best.pth")
 
         print("[epoch %d it %d PSNR: %.4f --- best_epoch %d best_iter %d Best_PSNR %.4f]" % (epoch, cur_step, psnr, best_epoch, best_iter, best_psnr))
 
@@ -257,7 +263,7 @@ def train_model_residual_lowlight_transformer():
         torch.save({'epoch': epoch, 
                     'gen': net.state_dict(),
                     'gen_opt': hsid_optimizer.state_dict()
-                    }, os.path.join('./checkpoints',"model_latest.pth"))
+                    }, os.path.join(save_model_path,"model_latest.pth"))
     tb_writer.close()
 
 
