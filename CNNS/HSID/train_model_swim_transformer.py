@@ -1,7 +1,9 @@
-from matplotlib.pyplot import axis, imshow
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 import torch
 import torch.nn as nn
 from torch.utils.data.dataset import ConcatDataset
+from matplotlib.pyplot import axis, imshow
 
 from model import HSID,HSIDNoLocal,HSIDCA,HSIDRes,TwoStageHSID
 import torch.optim as optim
@@ -29,15 +31,9 @@ import time
 from genericpath import exists
 
 #设置超参数
-NUM_EPOCHS =100
-BATCH_SIZE = 256
-#os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
-DEVICE = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
-INIT_LEARNING_RATE = 0.001
-K = 36
-display_step = 20
-display_band = 20
-RESUME = False
+
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
 
 #设置随机种子
 seed = 200
@@ -86,7 +82,16 @@ from model_swin_transformer import SwinIR
 def train_model_residual_lowlight_transformer():
 
     device = DEVICE
+    #设置超参数
+    batchsize = 256
+    init_lr = 0.001
+    K_adjacent_band = 36
+    display_step = 20
+    display_band = 20
+    is_resume = False
+    lambda_recon = 20
 
+    start_epoch = 1
     save_model_path = './checkpoints/swinIR'
     if not exists(save_model_path):
         os.mkdir(save_model_path)
@@ -101,7 +106,7 @@ def train_model_residual_lowlight_transformer():
     #train_set = ConcatDataset(train_set_list) #里面的样本大小必须是一致的，否则会连接失败
     print('total training example:', len(train_set))
 
-    train_loader = DataLoader(dataset=train_set, batch_size=BATCH_SIZE, shuffle=True)
+    train_loader = DataLoader(dataset=train_set, batch_size=batchsize, shuffle=True)
     
     #加载测试label数据
     mat_src_path = './data/test_lowlight/origin/soup_bigcorn_orange_1ms.mat'
@@ -121,16 +126,16 @@ def train_model_residual_lowlight_transformer():
     #创建模型
     upscale = 4
     window_size = 4
-    net = SwinIR(k=36, upscale=1, img_size=(height, width),in_chans=1, out_chans=1,
+    net = SwinIR(k=K_adjacent_band, upscale=1, img_size=(height, width),in_chans=1, out_chans=1,
                    window_size=window_size, img_range=1., depths=[6, 6, 6, 6],
                    embed_dim=60, num_heads=[6, 6, 6, 6], mlp_ratio=2, upsampler='pixelshuffledirect')
     init_params(net)
-    #net = nn.DataParallel(net).to(device)
+    net = nn.DataParallel(net).to(device)
     net = net.to(device)
     torch.backends.cudnn.enabled = False
     #创建优化器
     #hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE, betas=(0.9, 0,999))
-    hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE)
+    hsid_optimizer = optim.Adam(net.parameters(), lr=init_lr)
     scheduler = MultiStepLR(hsid_optimizer, milestones=[40,60,80], gamma=0.1)
 
     #定义loss 函数
@@ -267,5 +272,390 @@ def train_model_residual_lowlight_transformer():
     tb_writer.close()
 
 
+def train_model_residual_lowlight_transformer_patchsize64():
+
+    device = DEVICE
+    #设置超参数
+    batchsize = 100
+    init_lr = 0.001
+    K_adjacent_band = 36
+    display_step = 20
+    display_band = 20
+    is_resume = False
+    lambda_recon = 20
+
+    save_model_path = './checkpoints/swinIR'
+    if not exists(save_model_path):
+        os.mkdir(save_model_path)
+
+    #准备数据
+    train_set = HsiCubicTrainDataset('./data/train_lowlight_patchsize64_train10/')
+    #print('trainset32 training example:', len(train_set32))
+
+    #train_set_64 = HsiCubicTrainDataset('./data/train_lowlight_patchsize64/')
+
+    #train_set_list = [train_set32, train_set_64]
+    #train_set = ConcatDataset(train_set_list) #里面的样本大小必须是一致的，否则会连接失败
+    print('total training example:', len(train_set))
+
+    train_loader = DataLoader(dataset=train_set, batch_size=batchsize, shuffle=True)
+    batch_size, channel, train_width, train_height = next(iter(train_loader))[0].shape
+    #加载测试label数据
+    mat_src_path = './data/test_lowlight/origin/soup_bigcorn_orange_1ms.mat'
+    test_label_hsi = scio.loadmat(mat_src_path)['label']
+
+    #加载测试数据
+    test_batch_size = 1
+    test_data_dir = './data/test_lowlight/cubic/'
+    test_set = HsiCubicLowlightTestDataset(test_data_dir)
+    test_dataloader = DataLoader(dataset=test_set, batch_size=test_batch_size, shuffle=False)
+
+    batch_size, channel, test_width, test_height = next(iter(test_dataloader))[0].shape
+    
+    band_num = len(test_dataloader)
+    denoised_hsi = np.zeros((test_width, test_height, band_num))
+
+    #创建模型
+    upscale = 4
+    window_size = 4
+    net = SwinIR(k=K_adjacent_band, upscale=1, img_size=(train_height, train_width),in_chans=1, out_chans=1,
+                   window_size=window_size, img_range=1., depths=[6, 6, 6, 6],
+                   embed_dim=60, num_heads=[6, 6, 6, 6], mlp_ratio=2, upsampler='pixelshuffledirect')
+    init_params(net)
+    net = nn.DataParallel(net).to(device)
+    net = net.to(device)
+    torch.backends.cudnn.enabled = False
+    #创建优化器
+    #hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE, betas=(0.9, 0,999))
+    hsid_optimizer = optim.Adam(net.parameters(), lr=init_lr)
+    scheduler = MultiStepLR(hsid_optimizer, milestones=[40,60,80], gamma=0.1)
+
+    #定义loss 函数
+    #criterion = nn.MSELoss()
+
+    global tb_writer
+    tb_writer = get_summary_writer(log_dir='logs')
+
+    gen_epoch_loss_list = []
+
+    cur_step = 0
+
+    first_batch = next(iter(train_loader))
+
+    best_psnr = 0
+    best_epoch = 0
+    best_iter = 0
+    start_epoch = 1
+    num_epoch = 200
+
+    for epoch in range(start_epoch, num_epoch+1):
+        epoch_start_time = time.time()
+        scheduler.step()
+        print(epoch, 'lr={:.6f}'.format(scheduler.get_last_lr()[0]))
+        print(scheduler.get_lr())
+        gen_epoch_loss = 0
+
+        net.train()
+        #for batch_idx, (noisy, label) in enumerate([first_batch] * 300):
+        for batch_idx, (noisy, cubic, label) in enumerate(train_loader):
+            #print('batch_idx=', batch_idx)
+            noisy = noisy.to(device)
+            label = label.to(device)
+            cubic = cubic.to(device)
+
+            hsid_optimizer.zero_grad()
+            #denoised_img = net(noisy, cubic)
+            #loss = loss_fuction(denoised_img, label)
+
+            residual = net(noisy, cubic)
+            loss = loss_fuction(residual, label-noisy)
+
+            loss.backward() # calcu gradient
+            hsid_optimizer.step() # update parameter
+
+            gen_epoch_loss += loss.item()
+
+            if cur_step % display_step == 0:
+                if cur_step > 0:
+                    print(f"Epoch {epoch}: Step {cur_step}: Batch_idx {batch_idx}: MSE loss: {loss.item()}")
+                else:
+                    print("Pretrained initial state")
+
+            tb_writer.add_scalar("MSE loss", loss.item(), cur_step)
+
+            #step ++,每一次循环，每一个batch的处理，叫做一个step
+            cur_step += 1
+
+
+        gen_epoch_loss_list.append(gen_epoch_loss)
+        tb_writer.add_scalar("mse epoch loss", gen_epoch_loss, epoch)
+
+        #scheduler.step()
+        #print("Decaying learning rate to %g" % scheduler.get_last_lr()[0])
+ 
+        torch.save({
+            'gen': net.state_dict(),
+            'gen_opt': hsid_optimizer.state_dict(),
+        }, f"{save_model_path}/swinIR_patchsize64_{epoch}.pth")
+
+        #测试代码
+        net.eval()
+        for batch_idx, (noisy_test, cubic_test, label_test) in enumerate(test_dataloader):
+            noisy_test = noisy_test.type(torch.FloatTensor)
+            label_test = label_test.type(torch.FloatTensor)
+            cubic_test = cubic_test.type(torch.FloatTensor)
+
+            noisy_test = noisy_test.to(DEVICE)
+            label_test = label_test.to(DEVICE)
+            cubic_test = cubic_test.to(DEVICE)
+
+            with torch.no_grad():
+
+                residual = net(noisy_test, cubic_test)
+                denoised_band = noisy_test + residual
+                
+                denoised_band_numpy = denoised_band.cpu().numpy().astype(np.float32)
+                denoised_band_numpy = np.squeeze(denoised_band_numpy)
+
+                denoised_hsi[:,:,batch_idx] = denoised_band_numpy
+
+                if batch_idx == 49:
+                    residual_squeezed = torch.squeeze(residual, axis=0)
+                    denoised_band_squeezed = torch.squeeze(denoised_band, axis=0) 
+                    label_test_squeezed = torch.squeeze(label_test,axis=0)
+                    noisy_test_squeezed = torch.squeeze(noisy_test,axis=0)
+                    tb_writer.add_image(f"images/{epoch}_restored", denoised_band_squeezed, 1, dataformats='CHW')
+                    tb_writer.add_image(f"images/{epoch}_residual", residual_squeezed, 1, dataformats='CHW')
+                    tb_writer.add_image(f"images/{epoch}_label", label_test_squeezed, 1, dataformats='CHW')
+                    tb_writer.add_image(f"images/{epoch}_noisy", noisy_test_squeezed, 1, dataformats='CHW')
+
+        psnr = PSNR(denoised_hsi, test_label_hsi)
+        ssim = SSIM(denoised_hsi, test_label_hsi)
+        sam = SAM(denoised_hsi, test_label_hsi)
+
+        #计算pnsr和ssim
+        print("=====averPSNR:{:.3f}=====averSSIM:{:.4f}=====averSAM:{:.3f}".format(psnr, ssim, sam)) 
+        tb_writer.add_scalars("validation metrics", {'average PSNR':psnr,
+                        'average SSIM':ssim,
+                        'avarage SAM': sam}, epoch) #通过这个我就可以看到，那个epoch的性能是最好的
+
+        #保存best模型
+        if psnr > best_psnr:
+            best_psnr = psnr
+            best_epoch = epoch
+            best_iter = cur_step
+            torch.save({
+                'epoch' : epoch,
+                'gen': net.state_dict(),
+                'gen_opt': hsid_optimizer.state_dict(),
+            }, f"{save_model_path}/swinIR_patchsize64_best.pth")
+
+        print("[epoch %d it %d PSNR: %.4f --- best_epoch %d best_iter %d Best_PSNR %.4f]" % (epoch, cur_step, psnr, best_epoch, best_iter, best_psnr))
+
+        print("------------------------------------------------------------------")
+        print("Epoch: {}\tTime: {:.4f}\tLoss: {:.4f}\tLearningRate {:.6f}".format(epoch, time.time()-epoch_start_time, gen_epoch_loss, scheduler.get_lr()[0]))
+        print("------------------------------------------------------------------")
+
+        #保存当前模型
+        torch.save({'epoch': epoch, 
+                    'gen': net.state_dict(),
+                    'gen_opt': hsid_optimizer.state_dict()
+                    }, os.path.join(save_model_path,"model_latest.pth"))
+    tb_writer.close()
+
+def train_model_residual_lowlight_transformer_patchsize32():
+
+    device = DEVICE
+    #设置超参数
+    batchsize = 384
+    init_lr = 0.001
+    K_adjacent_band = 36
+    display_step = 20
+    display_band = 20
+    is_resume = False
+    lambda_recon = 20
+
+    save_model_path = './checkpoints/swinIR'
+    if not exists(save_model_path):
+        os.mkdir(save_model_path)
+
+    #准备数据
+    train_set = HsiCubicTrainDataset('./data/train_lowlight_patchsize32_train10/')
+    #print('trainset32 training example:', len(train_set32))
+
+    #train_set_64 = HsiCubicTrainDataset('./data/train_lowlight_patchsize64/')
+
+    #train_set_list = [train_set32, train_set_64]
+    #train_set = ConcatDataset(train_set_list) #里面的样本大小必须是一致的，否则会连接失败
+    print('total training example:', len(train_set))
+
+    train_loader = DataLoader(dataset=train_set, batch_size=batchsize, shuffle=True)
+    batch_size, channel, train_width, train_height = next(iter(train_loader))[0].shape
+
+    #加载测试label数据
+    mat_src_path = './data/test_lowlight/origin/soup_bigcorn_orange_1ms.mat'
+    test_label_hsi = scio.loadmat(mat_src_path)['label']
+
+    #加载测试数据
+    test_batch_size = 1
+    test_data_dir = './data/test_lowlight/cubic/'
+    test_set = HsiCubicLowlightTestDataset(test_data_dir)
+    test_dataloader = DataLoader(dataset=test_set, batch_size=test_batch_size, shuffle=False)
+
+    batch_size, channel, test_width, test_height = next(iter(test_dataloader))[0].shape
+    
+    band_num = len(test_dataloader)
+    denoised_hsi = np.zeros((test_width, test_height, band_num))
+
+    #创建模型
+    upscale = 4
+    window_size = 4
+    net = SwinIR(k=K_adjacent_band, upscale=1, img_size=(train_height, train_width),in_chans=1, out_chans=1,
+                   window_size=window_size, img_range=1., depths=[6, 6, 6, 6],
+                   embed_dim=60, num_heads=[6, 6, 6, 6], mlp_ratio=2, upsampler='pixelshuffledirect')
+    init_params(net)
+    net = nn.DataParallel(net).to(device)
+    net = net.to(device)
+    torch.backends.cudnn.enabled = False
+    #创建优化器
+    #hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE, betas=(0.9, 0,999))
+    hsid_optimizer = optim.Adam(net.parameters(), lr=init_lr)
+    scheduler = MultiStepLR(hsid_optimizer, milestones=[50,100,150], gamma=0.1)
+
+    #定义loss 函数
+    #criterion = nn.MSELoss()
+
+    global tb_writer
+    tb_writer = get_summary_writer(log_dir='logs')
+
+    gen_epoch_loss_list = []
+
+    cur_step = 0
+
+    first_batch = next(iter(train_loader))
+
+    best_psnr = 0
+    best_epoch = 0
+    best_iter = 0
+    start_epoch = 1
+    num_epoch = 200
+
+    for epoch in range(start_epoch, num_epoch+1):
+        epoch_start_time = time.time()
+        scheduler.step()
+        print(epoch, 'lr={:.6f}'.format(scheduler.get_last_lr()[0]))
+        print(scheduler.get_lr())
+        gen_epoch_loss = 0
+
+        net.train()
+        #for batch_idx, (noisy, label) in enumerate([first_batch] * 300):
+        for batch_idx, (noisy, cubic, label) in enumerate(train_loader):
+            #print('batch_idx=', batch_idx)
+            noisy = noisy.to(device)
+            label = label.to(device)
+            cubic = cubic.to(device)
+
+            hsid_optimizer.zero_grad()
+            #denoised_img = net(noisy, cubic)
+            #loss = loss_fuction(denoised_img, label)
+
+            residual = net(noisy, cubic)
+            loss = loss_fuction(residual, label-noisy)
+
+            loss.backward() # calcu gradient
+            hsid_optimizer.step() # update parameter
+
+            gen_epoch_loss += loss.item()
+
+            if cur_step % display_step == 0:
+                if cur_step > 0:
+                    print(f"Epoch {epoch}: Step {cur_step}: Batch_idx {batch_idx}: MSE loss: {loss.item()}")
+                else:
+                    print("Pretrained initial state")
+
+            tb_writer.add_scalar("MSE loss", loss.item(), cur_step)
+
+            #step ++,每一次循环，每一个batch的处理，叫做一个step
+            cur_step += 1
+
+
+        gen_epoch_loss_list.append(gen_epoch_loss)
+        tb_writer.add_scalar("mse epoch loss", gen_epoch_loss, epoch)
+
+        #scheduler.step()
+        #print("Decaying learning rate to %g" % scheduler.get_last_lr()[0])
+ 
+        torch.save({
+            'gen': net.state_dict(),
+            'gen_opt': hsid_optimizer.state_dict(),
+        }, f"{save_model_path}/swinIR_patchsize32_{epoch}.pth")
+
+        #测试代码
+        net.eval()
+        for batch_idx, (noisy_test, cubic_test, label_test) in enumerate(test_dataloader):
+            noisy_test = noisy_test.type(torch.FloatTensor)
+            label_test = label_test.type(torch.FloatTensor)
+            cubic_test = cubic_test.type(torch.FloatTensor)
+
+            noisy_test = noisy_test.to(DEVICE)
+            label_test = label_test.to(DEVICE)
+            cubic_test = cubic_test.to(DEVICE)
+
+            with torch.no_grad():
+
+                residual = net(noisy_test, cubic_test)
+                denoised_band = noisy_test + residual
+                
+                denoised_band_numpy = denoised_band.cpu().numpy().astype(np.float32)
+                denoised_band_numpy = np.squeeze(denoised_band_numpy)
+
+                denoised_hsi[:,:,batch_idx] = denoised_band_numpy
+
+                if batch_idx == 49:
+                    residual_squeezed = torch.squeeze(residual, axis=0)
+                    denoised_band_squeezed = torch.squeeze(denoised_band, axis=0) 
+                    label_test_squeezed = torch.squeeze(label_test,axis=0)
+                    noisy_test_squeezed = torch.squeeze(noisy_test,axis=0)
+                    tb_writer.add_image(f"images/{epoch}_restored", denoised_band_squeezed, 1, dataformats='CHW')
+                    tb_writer.add_image(f"images/{epoch}_residual", residual_squeezed, 1, dataformats='CHW')
+                    tb_writer.add_image(f"images/{epoch}_label", label_test_squeezed, 1, dataformats='CHW')
+                    tb_writer.add_image(f"images/{epoch}_noisy", noisy_test_squeezed, 1, dataformats='CHW')
+
+        psnr = PSNR(denoised_hsi, test_label_hsi)
+        ssim = SSIM(denoised_hsi, test_label_hsi)
+        sam = SAM(denoised_hsi, test_label_hsi)
+
+        #计算pnsr和ssim
+        print("=====averPSNR:{:.3f}=====averSSIM:{:.4f}=====averSAM:{:.3f}".format(psnr, ssim, sam)) 
+        tb_writer.add_scalars("validation metrics", {'average PSNR':psnr,
+                        'average SSIM':ssim,
+                        'avarage SAM': sam}, epoch) #通过这个我就可以看到，那个epoch的性能是最好的
+
+        #保存best模型
+        if psnr > best_psnr:
+            best_psnr = psnr
+            best_epoch = epoch
+            best_iter = cur_step
+            torch.save({
+                'epoch' : epoch,
+                'gen': net.state_dict(),
+                'gen_opt': hsid_optimizer.state_dict(),
+            }, f"{save_model_path}/swinIR_patchsize32_best.pth")
+
+        print("[epoch %d it %d PSNR: %.4f --- best_epoch %d best_iter %d Best_PSNR %.4f]" % (epoch, cur_step, psnr, best_epoch, best_iter, best_psnr))
+
+        print("------------------------------------------------------------------")
+        print("Epoch: {}\tTime: {:.4f}\tLoss: {:.4f}\tLearningRate {:.6f}".format(epoch, time.time()-epoch_start_time, gen_epoch_loss, scheduler.get_lr()[0]))
+        print("------------------------------------------------------------------")
+
+        #保存当前模型
+        torch.save({'epoch': epoch, 
+                    'gen': net.state_dict(),
+                    'gen_opt': hsid_optimizer.state_dict()
+                    }, os.path.join(save_model_path,"model_latest.pth"))
+    tb_writer.close()
+
 if __name__ == '__main__':
-    train_model_residual_lowlight_transformer()
+    #train_model_residual_lowlight_transformer()
+    #train_model_residual_lowlight_transformer_patchsize64()
+    train_model_residual_lowlight_transformer_patchsize32()
