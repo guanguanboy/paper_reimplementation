@@ -10,8 +10,8 @@ import tqdm
 from utils import get_adjacent_spectral_bands
 from metrics import PSNR, SSIM, SAM
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
+os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+DEVICE = "cuda:3" if torch.cuda.is_available() else "cpu"
 
 K = 30
 
@@ -25,7 +25,7 @@ def predict_lowlight_residual():
     encam = encam.to(DEVICE)
 
     encam.eval()
-    encam.load_state_dict(torch.load('./checkpoints/encam_0.pth', map_location='cuda:0')['gen'])
+    encam.load_state_dict(torch.load('./checkpoints/encam_best_08_27.pth', map_location='cuda:0')['gen'])
 
     #加载数据
     mat_src_path = '../HSID/data/test_lowlight/origin/soup_bigcorn_orange_1ms.mat'

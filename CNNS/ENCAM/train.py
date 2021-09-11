@@ -13,13 +13,14 @@ from torch.utils.data import DataLoader
 from hsidataset import HsiCubicTrainDataset, HsiCubicLowlightTestDataset
 from torch.nn.modules.loss import _Loss
 import os
+import torch.nn.functional as F
 
 #设置超参数
 #设置超参数
 NUM_EPOCHS =70
-BATCH_SIZE = 108
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
+BATCH_SIZE = 128
+os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+DEVICE = "cuda:3" if torch.cuda.is_available() else "cpu"
 INIT_LEARNING_RATE = 0.0001
 K = 30
 display_step = 20
@@ -123,7 +124,7 @@ def train_model_residual_lowlight():
             #loss = loss_fuction(denoised_img, label)
 
             residual = net(noisy, cubic)
-            loss = loss_function_new(residual, label-noisy)
+            loss = loss_fuction(residual, label-noisy)
 
             loss.backward() # calcu gradient
             hsid_optimizer.step() # update parameter
@@ -167,31 +168,19 @@ def train_model_residual_lowlight():
 
             with torch.no_grad():
 
-               #这里需要将current_noisy_band和adj_spectral_bands拆分成4份，每份大小为batchsize，1， band_num , height/2, width/2
-                current_noisy_band_00 = noisy_test[:,:, 0:noisy_test.shape[2]//2, 0:noisy_test.shape[3]//2]
-                adj_spectral_bands_00 = cubic_test[:,:,:, 0:cubic_test.shape[3]//2, 0:cubic_test.shape[4]//2]
-                residual_00 = net(current_noisy_band_00, adj_spectral_bands_00)
-                denoised_band_00 = current_noisy_band_00 + residual_00
+                #对图像下采样
+                #noisy_permute = noisy.permute(0, 3,1,2)#交换第一维和第三维 ，shape: batch_size, band_num, height, width 
+                #label_permute = label.permute(0, 3, 1, 2)
+                noisy_test_down = F.interpolate(noisy_test, scale_factor=0.5, mode='bilinear')
+                cubic_test_squeeze = torch.squeeze(cubic_test, 0)
+                cubic_test_down = F.interpolate(cubic_test_squeeze, scale_factor=0.5, mode='bilinear')
+                cubic_test_down_unsqueeze = torch.unsqueeze(cubic_test_down, 0)
+                residual = net(noisy_test_down, cubic_test_down_unsqueeze)
+                denoised_band = noisy_test_down + residual
 
-                current_noisy_band_01 = noisy_test[:,:, 0:noisy_test.shape[2]//2, noisy_test.shape[3]//2:noisy_test.shape[3]]
-                adj_spectral_bands_01 = cubic_test[:,:,:, 0:cubic_test.shape[3]//2, cubic_test.shape[4]//2:cubic_test.shape[4]]
-                residual_01 = net(current_noisy_band_01, adj_spectral_bands_01)
-                denoised_band_01 = current_noisy_band_01 + residual_01
+                #图像上采样
+                denoised_band = F.interpolate(denoised_band, scale_factor=2, mode='bilinear')
 
-                current_noisy_band_10 = noisy_test[:,:, noisy_test.shape[2]//2:noisy_test.shape[2], 0:(noisy_test.shape[3]//2)]
-                adj_spectral_bands_10 = cubic_test[:,:,:, cubic_test.shape[3]//2:cubic_test.shape[3], 0:cubic_test.shape[4]//2]
-                residual_10 = net(current_noisy_band_10, adj_spectral_bands_10)
-                denoised_band_10 = current_noisy_band_10 + residual_10
-
-                current_noisy_band_11 = noisy_test[:,:, noisy_test.shape[2]//2:noisy_test.shape[2], noisy_test.shape[3]//2:noisy_test.shape[3]]
-                adj_spectral_bands_11 = cubic_test[:,:,:, cubic_test.shape[3]//2:cubic_test.shape[3], cubic_test.shape[4]//2:cubic_test.shape[4]]
-                residual_11 = net(current_noisy_band_11, adj_spectral_bands_11)
-                denoised_band_11 = current_noisy_band_11 + residual_11
-
-                denoised_band_0 = torch.cat((denoised_band_00,denoised_band_01), dim=3)
-                denoised_band_1 = torch.cat((denoised_band_10,denoised_band_11), dim=3)
-                denoised_band = torch.cat((denoised_band_0, denoised_band_1),dim=2)
-                
                 denoised_band_numpy = denoised_band.cpu().numpy().astype(np.float32)
                 denoised_band_numpy = np.squeeze(denoised_band_numpy)
 
