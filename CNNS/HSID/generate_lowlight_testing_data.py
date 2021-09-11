@@ -22,10 +22,11 @@ import torch
 import matplotlib.pyplot as plt
 
 k = 18
-SIGMA=25
 
 save_path = './data/test_lowlight/cubic/'
-
+#save_path = './data/test_lowlight/cuk12/'
+if not os.path.exists(save_path):
+    os.mkdir(save_path)
 mat_src_path = './data/test_lowlight/origin/soup_bigcorn_orange_1ms.mat'
 
 test = scio.loadmat(mat_src_path)['lowlight']
@@ -50,7 +51,7 @@ def gen_test_patches(numpy_data,label, channel_is):
         #print(x.shape)
         if channel_i < k:
             # print(channel_i)
-            y = numpy_data[0:36, :, :]
+            y = numpy_data[0:(k*2), :, :]
             # print(y.shape)
         elif channel_i < channels - k:
             # print(channel_i)
@@ -59,7 +60,7 @@ def gen_test_patches(numpy_data,label, channel_is):
             # print(y.shape)
         else:
             # print(channel_i)
-            y = numpy_data[channel_is - 36:channel_is, :, :]
+            y = numpy_data[channel_is - (k*2):channel_is, :, :]
             #print(y.shape)
 
         name =  f'{count}.mat'

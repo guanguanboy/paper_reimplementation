@@ -21,10 +21,13 @@ import torch
 patch_size, stride = 20, 20
 
 k = 18
-SIGMA=25
 count = 0
 
 save_path = './data/train_lowlight/'
+#save_path = './data/train_lowlik12/'
+if not os.path.exists(save_path):
+    os.mkdir(save_path)
+
 def gen_patches(numpy_data_noisy,numpy_data_label, channel_is):
     # get multiscale patches from a single image
     channels=numpy_data_noisy.shape[0]
@@ -40,7 +43,7 @@ def gen_patches(numpy_data_noisy,numpy_data_label, channel_is):
                 #print(x.shape)
                 if channel_i < k:
                     # print(channel_i)
-                    noisy_cubic = numpy_data_noisy[0:36, i:i + patch_size, j:j + patch_size]
+                    noisy_cubic = numpy_data_noisy[0:(k*2), i:i + patch_size, j:j + patch_size]
                     # print(y.shape)
                 elif channel_i < channels - k:
                     # print(channel_i)
@@ -50,7 +53,7 @@ def gen_patches(numpy_data_noisy,numpy_data_label, channel_is):
                     # print(y.shape)
                 else:
                     # print(channel_i)
-                    noisy_cubic = numpy_data_noisy[channel_is - 36:channel_is, i:i + patch_size, j:j + patch_size]
+                    noisy_cubic = numpy_data_noisy[channel_is - (k*2):channel_is, i:i + patch_size, j:j + patch_size]
                     #print(y.shape)
                 global count
                 name =  f'{count}.mat'

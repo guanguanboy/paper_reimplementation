@@ -29,16 +29,9 @@ import model_utils
 import time
 import dir_utils
 
-#设置超参数
-NUM_EPOCHS =100
-BATCH_SIZE = 128
 #os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
 DEVICE = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
-INIT_LEARNING_RATE = 0.001
-K = 36
-display_step = 20
-display_band = 20
-RESUME = False
+
 
 #设置随机种子
 seed = 200
@@ -88,12 +81,20 @@ def loss_function_with_tvloss(x,y):
 
 adv_criterion = nn.BCEWithLogitsLoss() 
 recon_criterion = nn.L1Loss() 
-lambda_recon = 10
 
 from model_refactored import HSIDDenseNetTwoStage
 from Discriminator_copy import DiscriminatorABC
 
 def train_model_residual_lowlight_twostage_gan_best():
+
+    #设置超参数
+    batchsize = 128
+    init_lr = 0.001
+    K_adjacent_band = 36
+    display_step = 20
+    display_band = 20
+    is_resume = False
+    lambda_recon = 10
 
     start_epoch = 1
 
@@ -102,17 +103,17 @@ def train_model_residual_lowlight_twostage_gan_best():
     train_set = HsiCubicTrainDataset('./data/train_lowlight/')
     print('total training example:', len(train_set))
 
-    train_loader = DataLoader(dataset=train_set, batch_size=BATCH_SIZE, shuffle=True)
+    train_loader = DataLoader(dataset=train_set, batch_size=batchsize, shuffle=True)
     
     #加载测试label数据
     mat_src_path = './data/test_lowlight/origin/soup_bigcorn_orange_1ms.mat'
     test_label_hsi = scio.loadmat(mat_src_path)['label']
 
     #加载测试数据
-    batch_size = 1
+    test_batch_size = 1
     test_data_dir = './data/test_lowlight/cubic/'
     test_set = HsiCubicLowlightTestDataset(test_data_dir)
-    test_dataloader = DataLoader(dataset=test_set, batch_size=batch_size, shuffle=False)
+    test_dataloader = DataLoader(dataset=test_set, batch_size=test_batch_size, shuffle=False)
 
     batch_size, channel, width, height = next(iter(test_dataloader))[0].shape
     
@@ -120,7 +121,7 @@ def train_model_residual_lowlight_twostage_gan_best():
     denoised_hsi = np.zeros((width, height, band_num))
 
     #创建模型
-    net = HSIDDenseNetTwoStage(K)
+    net = HSIDDenseNetTwoStage(K_adjacent_band)
     init_params(net)
     #net = nn.DataParallel(net).to(device)
     net = net.to(device)
@@ -129,14 +130,14 @@ def train_model_residual_lowlight_twostage_gan_best():
     disc = DiscriminatorABC(2, 4)
     init_params(disc)
     disc = disc.to(device)
-    disc_opt = torch.optim.Adam(disc.parameters(), lr=INIT_LEARNING_RATE)
+    disc_opt = torch.optim.Adam(disc.parameters(), lr=init_lr)
 
     num_epoch = 100
     print('epoch count == ', num_epoch)
 
     #创建优化器
     #hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE, betas=(0.9, 0,999))
-    hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE)
+    hsid_optimizer = optim.Adam(net.parameters(), lr=init_lr)
     
     #Scheduler
     scheduler = MultiStepLR(hsid_optimizer, milestones=[40,60,80], gamma=0.1)
@@ -146,7 +147,7 @@ def train_model_residual_lowlight_twostage_gan_best():
     #scheduler.step()
 
     #唤醒训练
-    if RESUME:
+    if is_resume:
         model_dir  = './checkpoints'
         path_chk_rest    = dir_utils.get_last_path(model_dir, 'model_latest.pth')
         model_utils.load_checkpoint(net,path_chk_rest)
@@ -233,6 +234,8 @@ def train_model_residual_lowlight_twostage_gan_best():
             if cur_step % display_step == 0:
                 if cur_step > 0:
                     print(f"Epoch {epoch}: Step {cur_step}: Batch_idx {batch_idx}: MSE loss: {loss.item()}")
+                    print(f"rec_loss =  {rec_loss.item()}, gen_adv_loss = {gen_adv_loss.item()}")
+
                 else:
                     print("Pretrained initial state")
 
@@ -326,8 +329,17 @@ def train_model_residual_lowlight_twostage_gan_best():
 
     tb_writer.close()
 
-def train_model_residual_lowlight_twostage_gan():
+def train_model_residual_lowlight_twostage_gan_tune_hyperparameter():
 
+    #设置超参数
+    batchsize = 256
+    init_lr = 0.001
+    K_adjacent_band = 36
+    display_step = 20
+    display_band = 20
+    is_resume = False
+    lambda_recon = 10
+    disc_lr = 0.0002
     start_epoch = 1
 
     device = DEVICE
@@ -335,17 +347,17 @@ def train_model_residual_lowlight_twostage_gan():
     train_set = HsiCubicTrainDataset('./data/train_lowlight/')
     print('total training example:', len(train_set))
 
-    train_loader = DataLoader(dataset=train_set, batch_size=BATCH_SIZE, shuffle=True)
+    train_loader = DataLoader(dataset=train_set, batch_size=batchsize, shuffle=True)
     
     #加载测试label数据
     mat_src_path = './data/test_lowlight/origin/soup_bigcorn_orange_1ms.mat'
     test_label_hsi = scio.loadmat(mat_src_path)['label']
 
     #加载测试数据
-    batch_size = 1
+    test_batch_size = 1
     test_data_dir = './data/test_lowlight/cubic/'
     test_set = HsiCubicLowlightTestDataset(test_data_dir)
-    test_dataloader = DataLoader(dataset=test_set, batch_size=batch_size, shuffle=False)
+    test_dataloader = DataLoader(dataset=test_set, batch_size=test_batch_size, shuffle=False)
 
     batch_size, channel, width, height = next(iter(test_dataloader))[0].shape
     
@@ -353,7 +365,7 @@ def train_model_residual_lowlight_twostage_gan():
     denoised_hsi = np.zeros((width, height, band_num))
 
     #创建模型
-    net = HSIDDenseNetTwoStage(K)
+    net = HSIDDenseNetTwoStage(K_adjacent_band)
     init_params(net)
     #net = nn.DataParallel(net).to(device)
     net = net.to(device)
@@ -362,14 +374,15 @@ def train_model_residual_lowlight_twostage_gan():
     disc = DiscriminatorABC(2, 4)
     init_params(disc)
     disc = disc.to(device)
-    disc_opt = torch.optim.Adam(disc.parameters(), lr=INIT_LEARNING_RATE)
+    disc_opt = torch.optim.Adam(disc.parameters(), lr=disc_lr)
+    disc_scheduler = MultiStepLR(disc_opt, milestones=[40,60,80], gamma=0.1)
 
     num_epoch = 100
     print('epoch count == ', num_epoch)
 
     #创建优化器
     #hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE, betas=(0.9, 0,999))
-    hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE)
+    hsid_optimizer = optim.Adam(net.parameters(), lr=init_lr)
     
     #Scheduler
     scheduler = MultiStepLR(hsid_optimizer, milestones=[40,60,80], gamma=0.1)
@@ -379,7 +392,7 @@ def train_model_residual_lowlight_twostage_gan():
     #scheduler.step()
 
     #唤醒训练
-    if RESUME:
+    if is_resume:
         model_dir  = './checkpoints'
         path_chk_rest    = dir_utils.get_last_path(model_dir, 'model_latest.pth')
         model_utils.load_checkpoint(net,path_chk_rest)
@@ -390,9 +403,11 @@ def train_model_residual_lowlight_twostage_gan():
 
         for i in range(1, start_epoch):
             scheduler.step()
+            disc_scheduler.step()
         new_lr = scheduler.get_lr()[0]
+        new_disc_lr = disc_scheduler.get_lr()[0]
         print('------------------------------------------------------------------------------')
-        print("==> Resuming Training with learning rate:", new_lr)
+        print("==> Resuming Training with learning rate:", new_lr, new_disc_lr)
         print('------------------------------------------------------------------------------')
 
     #定义loss 函数
@@ -418,6 +433,10 @@ def train_model_residual_lowlight_twostage_gan():
         #print(epoch, 'lr={:.6f}'.format(scheduler.get_last_lr()[0]))
         print('epoch = ', epoch, 'lr={:.6f}'.format(scheduler.get_lr()[0]))
         print(scheduler.get_lr())
+        disc_scheduler.step()
+        print('epoch = ', epoch, 'lr={:.6f}'.format(disc_scheduler.get_lr()[0]))
+        print(disc_scheduler.get_lr())
+        
         gen_epoch_loss = 0
 
         net.train()
@@ -434,7 +453,7 @@ def train_model_residual_lowlight_twostage_gan():
                 fake,fake_stage2 = net(noisy, cubic)
             #print('noisy shape =', noisy.shape, fake_stage2.shape)
             #fake.detach()
-            disc_fake_hat = disc(fake_stage2.detach(), noisy) # Detach generator
+            disc_fake_hat = disc(fake_stage2.detach()+noisy, noisy) # Detach generator
             disc_fake_loss = adv_criterion(disc_fake_hat, torch.zeros_like(disc_fake_hat))
             disc_real_hat = disc(label, noisy)
             disc_real_loss = adv_criterion(disc_real_hat, torch.ones_like(disc_real_hat))
@@ -448,11 +467,11 @@ def train_model_residual_lowlight_twostage_gan():
             #loss = loss_fuction(denoised_img, label)
 
             residual, residual_stage2 = net(noisy, cubic)
-            disc_fake_hat = disc(residual_stage2, noisy)
+            disc_fake_hat = disc(residual_stage2+noisy, noisy)
             gen_adv_loss = adv_criterion(disc_fake_hat, torch.ones_like(disc_fake_hat))  
 
-            alpha = 0.2
-            beta = 0.2          
+            alpha = 0.1
+            beta = 0.8          
             rec_loss = beta * (alpha*loss_fuction(residual, label-noisy) + (1-alpha) * recon_criterion(residual, label-noisy)) \
              + (1-beta) * (alpha*loss_fuction(residual_stage2, label-noisy) + (1-alpha) * recon_criterion(residual_stage2, label-noisy))
 
@@ -466,6 +485,8 @@ def train_model_residual_lowlight_twostage_gan():
             if cur_step % display_step == 0:
                 if cur_step > 0:
                     print(f"Epoch {epoch}: Step {cur_step}: Batch_idx {batch_idx}: MSE loss: {loss.item()}")
+                    print(f"rec_loss =  {rec_loss.item()}, gen_adv_loss = {gen_adv_loss.item()}")
+
                 else:
                     print("Pretrained initial state")
 
@@ -486,7 +507,7 @@ def train_model_residual_lowlight_twostage_gan():
             'gen_opt': hsid_optimizer.state_dict(),
             'disc': disc.state_dict(),
             'disc_opt': disc_opt.state_dict()            
-        }, f"checkpoints/two_stage_hsid_dense_gan_{epoch}.pth")
+        }, f"checkpoints/two_stage_hsid_dense_gan_tune_hyperpara_{epoch}.pth")
 
         #测试代码
         net.eval()
@@ -542,7 +563,7 @@ def train_model_residual_lowlight_twostage_gan():
                 'gen_opt': hsid_optimizer.state_dict(),
                 'disc': disc.state_dict(),
                 'disc_opt': disc_opt.state_dict()                  
-            }, f"checkpoints/two_stage_hsid_dense_gan_best.pth")
+            }, f"checkpoints/two_stage_hsid_dense_gan_tune_hyperpara_best.pth")
 
         print("[epoch %d it %d PSNR: %.4f --- best_epoch %d best_iter %d Best_PSNR %.4f]" % (epoch, cur_step, psnr, best_epoch, best_iter, best_psnr))
 
@@ -559,11 +580,7 @@ def train_model_residual_lowlight_twostage_gan():
 
     tb_writer.close()
 
+
 if __name__ == '__main__':
-    #main()
-    #train_model()
-    #train_model_residual()
-    #train_model_residual_lowlight()
-    #train_model_residual_lowlight_twostage_gan()
-    #train_model_residual_lowlight_twostage_unet()
-    train_model_residual_lowlight_twostage_gan_best()
+    #train_model_residual_lowlight_twostage_gan_best()
+    train_model_residual_lowlight_twostage_gan_tune_hyperparameter()
