@@ -20,11 +20,11 @@ from torch.utils.data import Dataset
 import torch
 patch_size, stride = 20, 20
 
-k = 18
+k = 4
 count = 0
 
-save_path = './data/train_lowlight/'
-#save_path = './data/train_lowlik12/'
+#save_path = './data/train_lowlight/'
+save_path = './data/train_lowlik04/'
 if not os.path.exists(save_path):
     os.mkdir(save_path)
 

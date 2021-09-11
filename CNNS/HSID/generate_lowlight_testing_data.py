@@ -21,10 +21,10 @@ from torch.utils.data import Dataset
 import torch
 import matplotlib.pyplot as plt
 
-k = 18
+k = 4
 
-save_path = './data/test_lowlight/cubic/'
-#save_path = './data/test_lowlight/cuk12/'
+#save_path = './data/test_lowlight/cubic/'
+save_path = './data/test_lowlight/cuk04/'
 if not os.path.exists(save_path):
     os.mkdir(save_path)
 mat_src_path = './data/test_lowlight/origin/soup_bigcorn_orange_1ms.mat'

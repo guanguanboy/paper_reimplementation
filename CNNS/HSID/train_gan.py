@@ -334,7 +334,7 @@ def train_model_residual_lowlight_twostage_gan_tune_hyperparameter():
     #设置超参数
     batchsize = 256
     init_lr = 0.001
-    K_adjacent_band = 36
+    K_adjacent_band = 24
     display_step = 20
     display_band = 20
     is_resume = False
@@ -344,7 +344,7 @@ def train_model_residual_lowlight_twostage_gan_tune_hyperparameter():
 
     device = DEVICE
     #准备数据
-    train_set = HsiCubicTrainDataset('./data/train_lowlight/')
+    train_set = HsiCubicTrainDataset('./data/train_lowlik12/')
     print('total training example:', len(train_set))
 
     train_loader = DataLoader(dataset=train_set, batch_size=batchsize, shuffle=True)
@@ -355,7 +355,7 @@ def train_model_residual_lowlight_twostage_gan_tune_hyperparameter():
 
     #加载测试数据
     test_batch_size = 1
-    test_data_dir = './data/test_lowlight/cubic/'
+    test_data_dir = './data/test_lowlight/cuk12/'
     test_set = HsiCubicLowlightTestDataset(test_data_dir)
     test_dataloader = DataLoader(dataset=test_set, batch_size=test_batch_size, shuffle=False)
 
@@ -375,7 +375,7 @@ def train_model_residual_lowlight_twostage_gan_tune_hyperparameter():
     init_params(disc)
     disc = disc.to(device)
     disc_opt = torch.optim.Adam(disc.parameters(), lr=disc_lr)
-    disc_scheduler = MultiStepLR(disc_opt, milestones=[40,60,80], gamma=0.1)
+    #disc_scheduler = MultiStepLR(disc_opt, milestones=[40,60,80], gamma=0.1)
 
     num_epoch = 100
     print('epoch count == ', num_epoch)
@@ -403,9 +403,9 @@ def train_model_residual_lowlight_twostage_gan_tune_hyperparameter():
 
         for i in range(1, start_epoch):
             scheduler.step()
-            disc_scheduler.step()
+            #disc_scheduler.step()
         new_lr = scheduler.get_lr()[0]
-        new_disc_lr = disc_scheduler.get_lr()[0]
+        new_disc_lr = scheduler.get_lr()[0]
         print('------------------------------------------------------------------------------')
         print("==> Resuming Training with learning rate:", new_lr, new_disc_lr)
         print('------------------------------------------------------------------------------')
@@ -433,10 +433,10 @@ def train_model_residual_lowlight_twostage_gan_tune_hyperparameter():
         #print(epoch, 'lr={:.6f}'.format(scheduler.get_last_lr()[0]))
         print('epoch = ', epoch, 'lr={:.6f}'.format(scheduler.get_lr()[0]))
         print(scheduler.get_lr())
-        disc_scheduler.step()
-        print('epoch = ', epoch, 'lr={:.6f}'.format(disc_scheduler.get_lr()[0]))
-        print(disc_scheduler.get_lr())
-        
+        #disc_scheduler.step()
+        #print('epoch = ', epoch, 'lr={:.6f}'.format(disc_scheduler.get_lr()[0]))
+        #print(disc_scheduler.get_lr())
+
         gen_epoch_loss = 0
 
         net.train()
