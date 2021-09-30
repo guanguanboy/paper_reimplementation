@@ -23,14 +23,15 @@ from dir_utils import *
 from model_utils import *
 import time
 from utils import get_adjacent_spectral_bands
+from model_rdn import HSIRDN
 
 #设置超参数
 NUM_EPOCHS =100
 BATCH_SIZE = 128
 #os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
 DEVICE = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
-INIT_LEARNING_RATE = 0.001
-K = 24
+INIT_LEARNING_RATE = 0.0001
+K = 36
 display_step = 20
 display_band = 20
 RESUME = False
@@ -67,12 +68,11 @@ def loss_function_mse(x, y):
 
 recon_criterion = nn.L1Loss() 
 
-from model_se import HSID_origin_SE
-def train_model_residual_lowlight():
+def train_model_residual_lowlight_rdn():
 
     device = DEVICE
     #准备数据
-    train_set = HsiCubicTrainDataset('./data/train_lowlik12/')
+    train_set = HsiCubicTrainDataset('./data/train_lowlight_patchsize32/')
     #print('trainset32 training example:', len(train_set32))
     #train_set = HsiCubicTrainDataset('./data/train_lowlight/')
 
@@ -90,8 +90,8 @@ def train_model_residual_lowlight():
 
     #加载测试数据
     batch_size = 1
-    test_data_dir = './data/test_lowlight/cuk12/'
-    #test_data_dir = './data/test_lowlight/cubic/'
+    #test_data_dir = './data/test_lowlight/cuk12/'
+    test_data_dir = './data/test_lowlight/cubic/'
 
     test_set = HsiCubicLowlightTestDataset(test_data_dir)
     test_dataloader = DataLoader(dataset=test_set, batch_size=batch_size, shuffle=False)
@@ -101,8 +101,12 @@ def train_model_residual_lowlight():
     band_num = len(test_dataloader)
     denoised_hsi = np.zeros((width, height, band_num))
 
+    save_model_path = './checkpoints/hsirnd'
+    if not os.path.exists(save_model_path):
+        os.mkdir(save_model_path)
+
     #创建模型
-    net = HSID_origin_SE(K)
+    net = HSIRDN(K)
     init_params(net)
     #net = nn.DataParallel(net).to(device)
     net = net.to(device)
@@ -127,7 +131,7 @@ def train_model_residual_lowlight():
     best_epoch = 0
     best_iter = 0
     start_epoch = 1
-    num_epoch = 100
+    num_epoch = 200
 
     for epoch in range(start_epoch, num_epoch+1):
         epoch_start_time = time.time()
@@ -146,9 +150,10 @@ def train_model_residual_lowlight():
             #loss = loss_fuction(denoised_img, label)
 
             residual = net(noisy, cubic)
-            #loss = recon_criterion(residual, label-noisy) + loss_function_mse(residual, label-noisy)
+            alpha = 0.8
             loss = loss_function_mse(residual, label-noisy)
-
+            #loss = alpha*recon_criterion(residual, label-noisy) + (1-alpha)*loss_function_mse(residual, label-noisy)
+            #loss = recon_criterion(residual, label-noisy)
             loss.backward() # calcu gradient
             hsid_optimizer.step() # update parameter
 
@@ -175,7 +180,7 @@ def train_model_residual_lowlight():
         torch.save({
             'gen': net.state_dict(),
             'gen_opt': hsid_optimizer.state_dict(),
-        }, f"checkpoints/hsid_origin_se_l2_loss_{epoch}.pth")
+        }, f"{save_model_path}/hsid_rdn_5_l2_loss_patchsize32_{epoch}.pth")
 
         #测试代码
         net.eval()
@@ -227,7 +232,7 @@ def train_model_residual_lowlight():
                 'epoch' : epoch,
                 'gen': net.state_dict(),
                 'gen_opt': hsid_optimizer.state_dict(),
-            }, f"checkpoints/hsid_origin_se_l2_loss_best.pth")
+            }, f"{save_model_path}/hsid_rdn_5_l2_loss_patchsize32.pth")
 
         print("[epoch %d it %d PSNR: %.4f --- best_epoch %d best_iter %d Best_PSNR %.4f]" % (epoch, cur_step, psnr, best_epoch, best_iter, best_psnr))
 
@@ -239,8 +244,8 @@ def train_model_residual_lowlight():
         torch.save({'epoch': epoch, 
                     'gen': net.state_dict(),
                     'gen_opt': hsid_optimizer.state_dict()
-                    }, os.path.join('./checkpoints',"model_latest.pth"))
+                    }, os.path.join(save_model_path,"model_latest.pth"))
     tb_writer.close()
 
 if __name__ == '__main__':
-    train_model_residual_lowlight()
+    train_model_residual_lowlight_rdn()

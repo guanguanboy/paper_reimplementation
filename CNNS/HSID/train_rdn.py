@@ -1107,11 +1107,8 @@ def train_model_residual_lowlight_twostage_rdn():
 
     tb_writer.close()
 
+
+
 if __name__ == '__main__':
-    #main()
-    #train_model()
-    #train_model_residual()
-    #train_model_residual_lowlight()
-    #train_model_residual_lowlight_twostage()
-    #train_model_residual_lowlight_twostage_unet()
+
     train_model_residual_lowlight_twostage_rdn()

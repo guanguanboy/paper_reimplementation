@@ -28,7 +28,7 @@ from utils import get_adjacent_spectral_bands
 NUM_EPOCHS =100
 BATCH_SIZE = 128
 #os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
-DEVICE = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 INIT_LEARNING_RATE = 0.001
 K = 24
 display_step = 20
@@ -38,7 +38,7 @@ RESUME = False
 #设置随机种子
 seed = 200
 torch.manual_seed(seed) #在CPU上设置随机种子
-if DEVICE == 'cuda:1':
+if DEVICE == 'cuda:0':
     torch.cuda.manual_seed(seed) #在当前GPU上设置随机种子
     torch.cuda.manual_seed_all(seed)#为所有GPU设置随机种子
 
@@ -68,6 +68,8 @@ def loss_function_mse(x, y):
 recon_criterion = nn.L1Loss() 
 
 from model_se import HSID_origin_SE
+from model import HSIDCA
+
 def train_model_residual_lowlight():
 
     device = DEVICE
@@ -102,7 +104,7 @@ def train_model_residual_lowlight():
     denoised_hsi = np.zeros((width, height, band_num))
 
     #创建模型
-    net = HSID_origin_SE(K)
+    net = HSIDCA(K)
     init_params(net)
     #net = nn.DataParallel(net).to(device)
     net = net.to(device)
@@ -175,7 +177,7 @@ def train_model_residual_lowlight():
         torch.save({
             'gen': net.state_dict(),
             'gen_opt': hsid_optimizer.state_dict(),
-        }, f"checkpoints/hsid_origin_se_l2_loss_{epoch}.pth")
+        }, f"checkpoints/ca/hsid_origin_ca_l2_loss_{epoch}.pth")
 
         #测试代码
         net.eval()
@@ -227,7 +229,7 @@ def train_model_residual_lowlight():
                 'epoch' : epoch,
                 'gen': net.state_dict(),
                 'gen_opt': hsid_optimizer.state_dict(),
-            }, f"checkpoints/hsid_origin_se_l2_loss_best.pth")
+            }, f"checkpoints/ca/hsid_origin_ca_l2_loss_best.pth")
 
         print("[epoch %d it %d PSNR: %.4f --- best_epoch %d best_iter %d Best_PSNR %.4f]" % (epoch, cur_step, psnr, best_epoch, best_iter, best_psnr))
 
@@ -239,7 +241,7 @@ def train_model_residual_lowlight():
         torch.save({'epoch': epoch, 
                     'gen': net.state_dict(),
                     'gen_opt': hsid_optimizer.state_dict()
-                    }, os.path.join('./checkpoints',"model_latest.pth"))
+                    }, os.path.join('./checkpoints/ca',"model_latest.pth"))
     tb_writer.close()
 
 if __name__ == '__main__':

@@ -231,8 +231,16 @@ class HSIDCA(nn.Module):
          
         #self.feature_conv_3_5_7_9 = concat
         self.conv10 = nn.Conv2d(60, 1, kernel_size=3, stride=1, padding=1)
-        self.selayer = SELayer(60)
-
+        self.selayer1 = SELayer(60)
+        self.selayer2 = SELayer(60)
+        self.selayer3 = SELayer(60)
+        self.selayer4 = SELayer(60)
+        self.selayer5 = SELayer(60)
+        self.selayer6 = SELayer(60)
+        self.selayer7 = SELayer(60)
+        self.selayer8 = SELayer(60)
+        self.selayer9 = SELayer(60)
+        self.selayer10 = SELayer(60)
     def forward(self, x_spatial, x_spectral):
         x_spatial_feature_3 = self.spatial_feature_3(x_spatial)
         x_spatial_feature_5 = self.spatial_feature_5(x_spatial)
@@ -254,42 +262,42 @@ class HSIDCA(nn.Module):
         #print('feature_all shape =', feature_all.shape)
 
         x1 = self.conv1(feature_all)
-        x1 = self.selayer(x1)
+        x1 = self.selayer1(x1)
         x1_active = self.relu(x1)
 
 
         x2 = self.conv2(x1_active)
-        x2 = self.selayer(x2)
+        x2 = self.selayer2(x2)
         x2_active = self.relu(x2)
 
 
         x3 = self.conv3(x2_active)
-        x3 = self.selayer(x3)
+        x3 = self.selayer3(x3)
         x3_active = self.relu(x3)
 
         x4 = self.conv4(x3_active)
-        x4 = self.selayer(x4)
+        x4 = self.selayer4(x4)
         x4_active = self.relu(x4)
 
 
         x5 = self.conv5(x4_active)
-        x5 = self.selayer(x5)
+        x5 = self.selayer5(x5)
         x5_active = self.relu(x5)
 
         x6 = self.conv6(x5_active)
-        x6 = self.selayer(x6)        
+        x6 = self.selayer6(x6)        
         x6_active = self.relu(x6)
 
         x7 = self.conv7(x6_active)
-        x7 = self.selayer(x7)        
+        x7 = self.selayer7(x7)        
         x7_active = self.relu(x7)
 
         x8 = self.conv8(x7_active)
-        x8 = self.selayer(x8)        
+        x8 = self.selayer8(x8)        
         x8_active = self.relu(x8)
 
         x9 = self.conv9(x8_active)
-        x9 = self.selayer(x9)
+        x9 = self.selayer9(x9)
         x9_active = self.relu(x9)
 
         feature_conv3 = self.feature_conv3(x3_active)
@@ -298,7 +306,7 @@ class HSIDCA(nn.Module):
         feature_conv9 = self.feature_conv9(x9_active)
 
         feature_conv_3_5_7_9 = torch.cat((feature_conv3, feature_conv5, feature_conv7, feature_conv9), dim=1)
-        feature_conv_3_5_7_9_se = self.selayer(feature_conv_3_5_7_9)
+        feature_conv_3_5_7_9_se = self.selayer10(feature_conv_3_5_7_9)
         feature_conv_3_5_7_9 = self.relu(feature_conv_3_5_7_9_se)
         #print('feature_conv_3_5_7_9 shape=', feature_conv_3_5_7_9.shape)
 

@@ -334,7 +334,7 @@ def train_model_residual_lowlight_twostage_gan_tune_hyperparameter():
     #设置超参数
     batchsize = 256
     init_lr = 0.001
-    K_adjacent_band = 24
+    K_adjacent_band = 8
     display_step = 20
     display_band = 20
     is_resume = False
@@ -472,8 +472,8 @@ def train_model_residual_lowlight_twostage_gan_tune_hyperparameter():
 
             alpha = 0.1
             beta = 0.8          
-            rec_loss = beta * (alpha*loss_fuction(residual, label-noisy) + (1-alpha) * recon_criterion(residual, label-noisy)) \
-             + (1-beta) * (alpha*loss_fuction(residual_stage2, label-noisy) + (1-alpha) * recon_criterion(residual_stage2, label-noisy))
+            rec_loss = beta * (alpha*loss_function_mse(residual, label-noisy) + (1-alpha) * recon_criterion(residual, label-noisy)) \
+             + (1-beta) * (alpha*loss_function_mse(residual_stage2, label-noisy) + (1-alpha) * recon_criterion(residual_stage2, label-noisy))
 
             loss = gen_adv_loss + lambda_recon * rec_loss
 
