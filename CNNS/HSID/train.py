@@ -352,8 +352,6 @@ def train_model_residual():
 
     first_batch = next(iter(train_loader))
 
-
-
     for epoch in range(NUM_EPOCHS):
 
         gen_epoch_loss = 0

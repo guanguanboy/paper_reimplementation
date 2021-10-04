@@ -49,8 +49,8 @@ class RDNForImageDenoising(nn.Module):
             'A': (20, 6, 32),
             'B': (16, 8, 64),
             'C': (8, 6, 32),
-            'D': (6, 6, 32)
-        }['D']
+            'D': (6, 4, 32)
+        }['C']
 
         # Shallow feature extraction net
         #self.SFENet1 = nn.Conv2d(input_channels, G0, kSize, padding=(kSize-1)//2, stride=1)

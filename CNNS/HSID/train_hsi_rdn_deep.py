@@ -30,7 +30,7 @@ NUM_EPOCHS =100
 BATCH_SIZE = 128
 #os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-INIT_LEARNING_RATE = 0.001
+INIT_LEARNING_RATE = 0.0001
 K = 36
 display_step = 20
 display_band = 20
@@ -101,7 +101,7 @@ def train_model_residual_lowlight_rdn():
     band_num = len(test_dataloader)
     denoised_hsi = np.zeros((width, height, band_num))
 
-    save_model_path = './checkpoints/hsirnd'
+    save_model_path = './checkpoints/hsirnddeep'
     if not os.path.exists(save_model_path):
         os.mkdir(save_model_path)
 
@@ -114,7 +114,7 @@ def train_model_residual_lowlight_rdn():
     #创建优化器
     #hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE, betas=(0.9, 0,999))
     hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE)
-    scheduler = MultiStepLR(hsid_optimizer, milestones=[20,150], gamma=0.1)
+    scheduler = MultiStepLR(hsid_optimizer, milestones=[200,400,600,800], gamma=0.5)
 
     #定义loss 函数
     #criterion = nn.MSELoss()
@@ -132,12 +132,12 @@ def train_model_residual_lowlight_rdn():
     best_epoch = 0
     best_iter = 0
     start_epoch = 1
-    num_epoch = 200
+    num_epoch = 1000
 
     for epoch in range(start_epoch, num_epoch+1):
         epoch_start_time = time.time()
         scheduler.step()
-        #print(epoch, 'lr={:.6f}'.format(scheduler.get_last_lr()[0]))
+        print(epoch, 'lr={:.6f}'.format(scheduler.get_last_lr()[0]))
         print('epoch = ', epoch, 'lr={:.6f}'.format(scheduler.get_lr()[0]))
         print(scheduler.get_lr())
         gen_epoch_loss = 0
@@ -185,7 +185,7 @@ def train_model_residual_lowlight_rdn():
         torch.save({
             'gen': net.state_dict(),
             'gen_opt': hsid_optimizer.state_dict(),
-        }, f"{save_model_path}/hsid_rdn_deep_l2_loss_patchsize20_{epoch}.pth")
+        }, f"{save_model_path}/hsid_rdn_deep_6_l2_loss_patchsize32_{epoch}.pth")
 
         #测试代码
         net.eval()
@@ -237,7 +237,7 @@ def train_model_residual_lowlight_rdn():
                 'epoch' : epoch,
                 'gen': net.state_dict(),
                 'gen_opt': hsid_optimizer.state_dict(),
-            }, f"{save_model_path}/hsid_rdn_deep_l2_loss_patchsize20_best.pth")
+            }, f"{save_model_path}/hsid_rdn_deep_6_l2_loss_patchsize32_best.pth")
 
         print("[epoch %d it %d PSNR: %.4f --- best_epoch %d best_iter %d Best_PSNR %.4f]" % (epoch, cur_step, psnr, best_epoch, best_iter, best_psnr))
 

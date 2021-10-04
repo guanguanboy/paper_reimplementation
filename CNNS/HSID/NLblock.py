@@ -130,8 +130,8 @@ if __name__ == '__main__':
     # out = net(img)
     # print(out.size())
     #
-    img = Variable(torch.zeros(2, 3, 20, 20))
-    net = NONLocalBlock2D(3, sub_sample=sub_sample, bn_layer=bn_layer)
+    img = Variable(torch.zeros(128, 64, 20, 20))
+    net = NONLocalBlock2D(64, sub_sample=sub_sample, bn_layer=bn_layer)
     out = net(img)
     print(out.size())
 

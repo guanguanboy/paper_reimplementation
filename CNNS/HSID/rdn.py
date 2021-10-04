@@ -144,10 +144,39 @@ class DenoiseRDN(nn.Module):
         f_gf = self.GFF2(f_1x1)
         return f_gf
 
+class DenoiseRDN_Custom(nn.Module):
+    def __init__(self,channel,growth_rate, conv_number, rdb_count):
+        super(DenoiseRDN_Custom,self).__init__()
+        #self.SFF1 = nn.Conv2d(in_channels = channel,out_channels = 64,kernel_size = 3,padding = 1 , stride = 1)
+        #self.SFF2 = nn.Conv2d(in_channels = 64,out_channels = 64,kernel_size = 3,padding = 1 , stride = 1)
+        self.rdb_count = rdb_count
+
+        self.GFF1 = nn.Conv2d(in_channels = channel*self.rdb_count,out_channels = channel,kernel_size = 1,padding = 0 )
+        self.GFF2 = nn.Conv2d(in_channels = channel,out_channels = channel,kernel_size = 3,padding = 1 )
+
+        self.rdbModuleList = nn.ModuleList()
+        for i in range(self.rdb_count):
+            self.rdbModuleList.append(
+                DenoiseRDB(nb_layers = conv_number,input_dim=60,growth_rate=growth_rate)
+            )
+
+
+    def forward(self,x):
+
+        RDBs_out = []
+        for i in range(self.rdb_count):
+            x = self.rdbModuleList[i](x)
+            RDBs_out.append(x)
+
+        f_D = torch.cat(RDBs_out,1)
+
+        f_1x1 = self.GFF1(f_D)
+        f_gf = self.GFF2(f_1x1)
+        return f_gf
 
 def rdn_test():
     input_t = torch.randn(5, 60, 20, 20)
-    rdn = DenoiseRDN(channel = 60, growth_rate=20, rdb_number = 4)
+    rdn = DenoiseRDN_Custom(channel = 60, growth_rate=20, conv_number = 4,rdb_count=3)
     # Find total parameters and trainable parameters
     total_params = sum(p.numel() for p in rdn.parameters())
     print(f'{total_params:,} total parameters.')
@@ -165,5 +194,5 @@ def rdb_test():
     print(output.shape)
 
 if __name__ == "__main__":
-    rdb_test()
+    #rdb_test()
     rdn_test()

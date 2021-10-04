@@ -24,12 +24,14 @@ from model_utils import *
 import time
 from utils import get_adjacent_spectral_bands
 from model_rdn import HSIRDN
+import model_utils
+import dir_utils
 
 #设置超参数
 NUM_EPOCHS =100
 BATCH_SIZE = 128
 #os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
-DEVICE = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 INIT_LEARNING_RATE = 0.0001
 K = 36
 display_step = 20
@@ -39,7 +41,7 @@ RESUME = False
 #设置随机种子
 seed = 200
 torch.manual_seed(seed) #在CPU上设置随机种子
-if DEVICE == 'cuda:1':
+if DEVICE == 'cuda:0':
     torch.cuda.manual_seed(seed) #在当前GPU上设置随机种子
     torch.cuda.manual_seed_all(seed)#为所有GPU设置随机种子
 
@@ -108,15 +110,31 @@ def train_model_residual_lowlight_rdn():
     #创建模型
     net = HSIRDN(K)
     init_params(net)
-    #net = nn.DataParallel(net).to(device)
-    net = net.to(device)
+    net = nn.DataParallel(net).to(device)
+    #net = net.to(device)
 
     #创建优化器
     #hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE, betas=(0.9, 0,999))
     hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE)
+    scheduler = MultiStepLR(hsid_optimizer, milestones=[200,400], gamma=0.5)
 
     #定义loss 函数
     #criterion = nn.MSELoss()
+
+    is_resume = RESUME
+    #唤醒训练
+    if is_resume:
+        path_chk_rest    = dir_utils.get_last_path(save_model_path, 'model_latest.pth')
+        model_utils.load_checkpoint(net,path_chk_rest)
+        start_epoch = model_utils.load_start_epoch(path_chk_rest) + 1
+        model_utils.load_optim(hsid_optimizer, path_chk_rest)
+
+        for i in range(1, start_epoch):
+            scheduler.step()
+        new_lr = scheduler.get_lr()[0]
+        print('------------------------------------------------------------------------------')
+        print("==> Resuming Training with learning rate:", new_lr)
+        print('------------------------------------------------------------------------------')
 
     global tb_writer
     tb_writer = get_summary_writer(log_dir='logs')
@@ -130,11 +148,16 @@ def train_model_residual_lowlight_rdn():
     best_psnr = 0
     best_epoch = 0
     best_iter = 0
-    start_epoch = 1
-    num_epoch = 200
+    if not is_resume:
+        start_epoch = 1
+    num_epoch = 600
 
     for epoch in range(start_epoch, num_epoch+1):
         epoch_start_time = time.time()
+        scheduler.step()
+        print('epoch = ', epoch, 'lr={:.6f}'.format(scheduler.get_lr()[0]))
+        print(scheduler.get_lr())
+
         gen_epoch_loss = 0
 
         net.train()
@@ -151,7 +174,7 @@ def train_model_residual_lowlight_rdn():
 
             residual = net(noisy, cubic)
             alpha = 0.8
-            loss = loss_function_mse(residual, label-noisy)
+            loss = recon_criterion(residual, label-noisy)
             #loss = alpha*recon_criterion(residual, label-noisy) + (1-alpha)*loss_function_mse(residual, label-noisy)
             #loss = recon_criterion(residual, label-noisy)
             loss.backward() # calcu gradient
