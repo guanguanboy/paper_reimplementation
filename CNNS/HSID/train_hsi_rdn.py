@@ -33,7 +33,7 @@ BATCH_SIZE = 128
 #os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 INIT_LEARNING_RATE = 0.0001
-K = 36
+K = 24
 display_step = 20
 display_band = 20
 RESUME = False
@@ -74,7 +74,7 @@ def train_model_residual_lowlight_rdn():
 
     device = DEVICE
     #准备数据
-    train_set = HsiCubicTrainDataset('./data/train_lowlight_patchsize32/')
+    train_set = HsiCubicTrainDataset('./data/train_lowlight_patchsize32_K24/')
     #print('trainset32 training example:', len(train_set32))
     #train_set = HsiCubicTrainDataset('./data/train_lowlight/')
 
@@ -92,8 +92,8 @@ def train_model_residual_lowlight_rdn():
 
     #加载测试数据
     batch_size = 1
-    #test_data_dir = './data/test_lowlight/cuk12/'
-    test_data_dir = './data/test_lowlight/cubic/'
+    test_data_dir = './data/test_lowlight/cuk12/'
+    #test_data_dir = './data/test_lowlight/cubic/'
 
     test_set = HsiCubicLowlightTestDataset(test_data_dir)
     test_dataloader = DataLoader(dataset=test_set, batch_size=batch_size, shuffle=False)
@@ -103,7 +103,7 @@ def train_model_residual_lowlight_rdn():
     band_num = len(test_dataloader)
     denoised_hsi = np.zeros((width, height, band_num))
 
-    save_model_path = './checkpoints/hsirnd'
+    save_model_path = './checkpoints/hsirndk24'
     if not os.path.exists(save_model_path):
         os.mkdir(save_model_path)
 
@@ -203,7 +203,7 @@ def train_model_residual_lowlight_rdn():
         torch.save({
             'gen': net.state_dict(),
             'gen_opt': hsid_optimizer.state_dict(),
-        }, f"{save_model_path}/hsid_rdn_5_l2_loss_patchsize32_{epoch}.pth")
+        }, f"{save_model_path}/hsid_rdn_4rdb_l1_loss_600epoch_patchsize32_{epoch}.pth")
 
         #测试代码
         net.eval()
@@ -255,7 +255,7 @@ def train_model_residual_lowlight_rdn():
                 'epoch' : epoch,
                 'gen': net.state_dict(),
                 'gen_opt': hsid_optimizer.state_dict(),
-            }, f"{save_model_path}/hsid_rdn_5_l2_loss_patchsize32.pth")
+            }, f"{save_model_path}/hsid_rdn_4rdb_l1_loss_600epoch_patchsize32_best.pth")
 
         print("[epoch %d it %d PSNR: %.4f --- best_epoch %d best_iter %d Best_PSNR %.4f]" % (epoch, cur_step, psnr, best_epoch, best_iter, best_psnr))
 
