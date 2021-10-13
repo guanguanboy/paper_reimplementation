@@ -23,14 +23,14 @@ def predict_lowlight_hsid_origin():
     
     #加载模型
     #hsid = HSID(36)
-    hsid = HSIRDNCoordAtt(36)
+    hsid = HSIRDN(24)
     hsid = nn.DataParallel(hsid).to(DEVICE)
     #device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
-    save_model_path = './checkpoints/hsirnd_coordatt'
+    save_model_path = './checkpoints/hsirndk24'
 
     #hsid = hsid.to(DEVICE)
-    hsid.load_state_dict(torch.load(save_model_path + '/hsid_rdn_coordatt_l1_loss_600epoch_patchsize32_best.pth', map_location='cuda:0')['gen'])
+    hsid.load_state_dict(torch.load(save_model_path + '/hsid_rdn_4rdb_l1_loss_600epoch_patchsize32_best.pth', map_location='cuda:0')['gen'])
 
     #加载测试label数据
     mat_src_path = './data/test_lowlight/origin/soup_bigcorn_orange_1ms.mat'
@@ -38,7 +38,7 @@ def predict_lowlight_hsid_origin():
 
     #加载测试数据
     batch_size = 1
-    test_data_dir = './data/test_lowlight/cubic/'
+    test_data_dir = './data/test_lowlight/cuk12/'
     test_set = HsiCubicLowlightTestDataset(test_data_dir)
     test_dataloader = DataLoader(dataset=test_set, batch_size=batch_size, shuffle=False)
 

@@ -23,10 +23,9 @@ from dir_utils import *
 from model_utils import *
 import time
 from utils import get_adjacent_spectral_bands
-from model_rdn import HSIRDN
+from model_rdn import HSIRDN,HSIRDNMOD,HSIRDNSE,HSIRDNDA
 import model_utils
 import dir_utils
-from torch.optim.lr_scheduler import CosineAnnealingLR
 
 #设置超参数
 NUM_EPOCHS =100
@@ -104,12 +103,12 @@ def train_model_residual_lowlight_rdn():
     band_num = len(test_dataloader)
     denoised_hsi = np.zeros((width, height, band_num))
 
-    save_model_path = './checkpoints/hsirnd_cosine'
+    save_model_path = './checkpoints/hsirnd_da'
     if not os.path.exists(save_model_path):
         os.mkdir(save_model_path)
 
     #创建模型
-    net = HSIRDN(K)
+    net = HSIRDNDA(K)
     init_params(net)
     net = nn.DataParallel(net).to(device)
     #net = net.to(device)
@@ -117,8 +116,7 @@ def train_model_residual_lowlight_rdn():
     #创建优化器
     #hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE, betas=(0.9, 0,999))
     hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE)
-    #scheduler = MultiStepLR(hsid_optimizer, milestones=[200,400], gamma=0.5)
-    scheduler = CosineAnnealingLR(hsid_optimizer,T_max=600)
+    scheduler = MultiStepLR(hsid_optimizer, milestones=[200,400], gamma=0.5)
 
     #定义loss 函数
     #criterion = nn.MSELoss()
@@ -205,7 +203,7 @@ def train_model_residual_lowlight_rdn():
         torch.save({
             'gen': net.state_dict(),
             'gen_opt': hsid_optimizer.state_dict(),
-        }, f"{save_model_path}/hsid_rdn_4rdb_conise_l1_loss_600epoch_patchsize32_{epoch}.pth")
+        }, f"{save_model_path}/hsid_rdn_da_l1_loss_600epoch_patchsize32_{epoch}.pth")
 
         #测试代码
         net.eval()
@@ -257,7 +255,7 @@ def train_model_residual_lowlight_rdn():
                 'epoch' : epoch,
                 'gen': net.state_dict(),
                 'gen_opt': hsid_optimizer.state_dict(),
-            }, f"{save_model_path}/hsid_rdn_4rdb_conise_l1_loss_600epoch_patchsize32_best.pth")
+            }, f"{save_model_path}/hsid_rdn_da_l1_loss_600epoch_patchsize32_best.pth")
 
         print("[epoch %d it %d PSNR: %.4f --- best_epoch %d best_iter %d Best_PSNR %.4f]" % (epoch, cur_step, psnr, best_epoch, best_iter, best_psnr))
 
