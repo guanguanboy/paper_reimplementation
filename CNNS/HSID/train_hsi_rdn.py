@@ -209,6 +209,7 @@ def train_model_residual_lowlight_rdn():
 
         #测试代码
         net.eval()
+        psnr_list = []
         for batch_idx, (noisy_test, cubic_test, label_test) in enumerate(test_dataloader):
             noisy_test = noisy_test.type(torch.FloatTensor)
             label_test = label_test.type(torch.FloatTensor)
@@ -238,14 +239,20 @@ def train_model_residual_lowlight_rdn():
                     tb_writer.add_image(f"images/{epoch}_label", label_test_squeezed, 1, dataformats='CHW')
                     tb_writer.add_image(f"images/{epoch}_noisy", noisy_test_squeezed, 1, dataformats='CHW')
 
-        psnr = PSNR(denoised_hsi, test_label_hsi)
-        ssim = SSIM(denoised_hsi, test_label_hsi)
-        sam = SAM(denoised_hsi, test_label_hsi)
+            psnr = PSNR(denoised_hsi, test_label_hsi)
+            psnr_list.append(psnr)
+        
+        mpsnr = np.mean(psnr_list)
+
+        denoised_hsi_trans = denoised_hsi.transpose(2,0,1)
+        test_label_hsi_trans = test_label_hsi.transpose(2, 0, 1)
+        mssim = SSIM(denoised_hsi_trans, test_label_hsi_trans)
+        sam = SAM(denoised_hsi_trans, test_label_hsi_trans)
 
         #计算pnsr和ssim
-        print("=====averPSNR:{:.3f}=====averSSIM:{:.4f}=====averSAM:{:.3f}".format(psnr, ssim, sam)) 
-        tb_writer.add_scalars("validation metrics", {'average PSNR':psnr,
-                        'average SSIM':ssim,
+        print("=====averPSNR:{:.4f}=====averSSIM:{:.4f}=====averSAM:{:.4f}".format(mpsnr, mssim, sam)) 
+        tb_writer.add_scalars("validation metrics", {'average PSNR':mpsnr,
+                        'average SSIM':mssim,
                         'avarage SAM': sam}, epoch) #通过这个我就可以看到，那个epoch的性能是最好的
 
         #保存best模型

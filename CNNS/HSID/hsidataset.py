@@ -85,7 +85,7 @@ class HsiCubicTestDataset(Dataset):
         super(HsiCubicTestDataset, self).__init__()
         self.image_filenames = [join(dataset_dir, x) for x in listdir(dataset_dir) if is_image_file(x)]
         self.image_filenames.sort(key = lambda x: int(x[18:-4])) #升序排列文件名
-        print(self.image_filenames)
+        #print(self.image_filenames)
 
     def __getitem__(self, index):
         mat = scio.loadmat(self.image_filenames[index], verify_compressed_data_integrity=False)
@@ -107,7 +107,7 @@ class HsiCubicLowlightTestDataset(Dataset):
         super(HsiCubicLowlightTestDataset, self).__init__()
         self.image_filenames = [join(dataset_dir, x) for x in listdir(dataset_dir) if is_image_file(x)]
         self.image_filenames.sort(key = lambda x: int(x[27:-4])) #升序排列文件名
-        print(self.image_filenames)
+        #print(self.image_filenames)
 
     def __getitem__(self, index):
         mat = scio.loadmat(self.image_filenames[index], verify_compressed_data_integrity=False)

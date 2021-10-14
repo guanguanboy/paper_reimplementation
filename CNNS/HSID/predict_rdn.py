@@ -64,6 +64,8 @@ def predict_lowlight_hsid_origin():
     将去噪后的结果保存成mat结构
     """
     hsid.eval()
+    psnr_list = []
+
     for batch_idx, (noisy_test, cubic_test, label_test) in enumerate(test_dataloader):
         noisy_test = noisy_test.type(torch.FloatTensor)
         label_test = label_test.type(torch.FloatTensor)
@@ -83,15 +85,23 @@ def predict_lowlight_hsid_origin():
 
             denoised_hsi[:,:,batch_idx] = denoised_band_numpy
 
-    psnr = PSNR(denoised_hsi, test_label_hsi)
-    ssim = SSIM(denoised_hsi, test_label_hsi)
-    sam = SAM(denoised_hsi, test_label_hsi)
+        test_label_current_band = test_label_hsi[:,:,batch_idx]
 
+        psnr = PSNR(denoised_band_numpy, test_label_current_band)
+        psnr_list.append(psnr)
     #mdict是python字典类型，value值需要是一个numpy数组
     scio.savemat(test_result_output_path + 'result.mat', {'denoised': denoised_hsi})
 
     #计算pnsr和ssim
-    print("=====averPSNR:{:.4f}=====averSSIM:{:.4f}=====averSAM:{:.3f}".format(psnr, ssim, sam)) 
+    mpsnr = np.mean(psnr_list)
+    #mssim = np.mean(ssim_list)
+    #sam = SAM(denoised_hsi.transpose(2,0,1), test_label_hsi.transpose(2, 0, 1))
+
+    denoised_hsi_trans = denoised_hsi.transpose(2,0,1)
+    test_label_hsi_trans = test_label_hsi.transpose(2, 0, 1)
+    mssim = SSIM(denoised_hsi_trans, test_label_hsi_trans)
+    sam = SAM(denoised_hsi_trans, test_label_hsi_trans)
+    print("=====averPSNR:{:.4f}=====averSSIM:{:.4f}=====averSAM:{:.4f}".format(mpsnr, mssim, sam)) 
 
 if __name__ == '__main__':
     predict_lowlight_hsid_origin()
