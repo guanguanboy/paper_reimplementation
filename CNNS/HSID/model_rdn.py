@@ -711,3 +711,71 @@ class HSIRDN_REC_GC(nn.Module):
         output = self.conv10(f_gc)
 
         return output
+
+from model_shallow_extraction import HSIDShallowExtrSim
+class HSIRDNSTESim(nn.Module):
+    def __init__(self, k=24):
+        super(HSIRDNSTESim, self).__init__()
+        self.shallow_extr = HSIDShallowExtrSim(k)
+
+        #self.feature_all : Concat
+        self.conv1 = nn.Sequential(*conv_relu(120, 60))
+        self.rdn = DenoiseRDN_Custom(channel = 60, growth_rate=20, conv_number = 4,rdb_count=4)
+
+        self.conv10 = nn.Conv2d(60, 1, kernel_size=3, stride=1, padding=1)
+        self.relu = nn.ReLU()
+
+
+    def forward(self, x_spatial, x_spectral):
+        feature_all = self.shallow_extr(x_spatial, x_spectral)
+
+        f0 = self.conv1(feature_all) #x1相当于rdn中的F-1或者f0
+        
+        feature_rdn = self.rdn(f0)
+
+        feature_conv_3_5_7_9 = self.relu(feature_rdn)
+        #print('feature_conv_3_5_7_9 shape=', feature_conv_3_5_7_9.shape)
+
+        output = self.conv10(feature_conv_3_5_7_9)
+
+        return output
+
+from model_shallow_extraction import HSIDShallowExtr
+class HSIRDNSTE(nn.Module):
+    def __init__(self, k=24):
+        super(HSIRDNSTE, self).__init__()
+        self.shallow_extr = HSIDShallowExtr(k)
+
+        #self.feature_all : Concat
+        self.conv1 = nn.Sequential(*conv_relu(120, 60))
+        self.rdn = DenoiseRDN_Custom(channel = 60, growth_rate=20, conv_number = 4,rdb_count=4)
+
+        self.conv10 = nn.Conv2d(60, 1, kernel_size=3, stride=1, padding=1)
+        self.relu = nn.ReLU()
+
+
+    def forward(self, x_spatial, x_spectral):
+        feature_all = self.shallow_extr(x_spatial, x_spectral)
+
+        f0 = self.conv1(feature_all) #x1相当于rdn中的F-1或者f0
+        
+        feature_rdn = self.rdn(f0)
+
+        feature_conv_3_5_7_9 = self.relu(feature_rdn)
+        #print('feature_conv_3_5_7_9 shape=', feature_conv_3_5_7_9.shape)
+
+        output = self.conv10(feature_conv_3_5_7_9)
+
+        return output
+
+def test():
+    net = HSIRDNSTE(24)
+    print(net)
+
+    data = torch.randn(1, 24, 200, 200)
+    data1 = torch.randn(1, 1, 200, 200)
+
+    output = net(data1, data)
+    print(output.shape)
+
+test()
