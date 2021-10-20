@@ -342,8 +342,8 @@ class DenoiseRDN_CustomECA(nn.Module):
         f_D = torch.cat(RDBs_out,1)
 
         f_1x1 = self.GFF1(f_D)
-        f_gf = self.GFF2(f_1x1)
-        return f_gf
+        #f_gf = self.GFF2(f_1x1)
+        return f_1x1
 
 
 from ecbam import ECBAMBlock,ChannelAttention

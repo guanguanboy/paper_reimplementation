@@ -239,7 +239,8 @@ def train_model_residual_lowlight_rdn():
                     tb_writer.add_image(f"images/{epoch}_label", label_test_squeezed, 1, dataformats='CHW')
                     tb_writer.add_image(f"images/{epoch}_noisy", noisy_test_squeezed, 1, dataformats='CHW')
 
-            psnr = PSNR(denoised_hsi, test_label_hsi)
+            test_label_current_band = test_label_hsi[:,:,batch_idx]
+            psnr = PSNR(denoised_band_numpy, test_label_current_band)
             psnr_list.append(psnr)
         
         mpsnr = np.mean(psnr_list)
@@ -256,8 +257,8 @@ def train_model_residual_lowlight_rdn():
                         'avarage SAM': sam}, epoch) #通过这个我就可以看到，那个epoch的性能是最好的
 
         #保存best模型
-        if psnr > best_psnr:
-            best_psnr = psnr
+        if mpsnr > best_psnr:
+            best_psnr = mpsnr
             best_epoch = epoch
             best_iter = cur_step
             torch.save({

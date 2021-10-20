@@ -36,7 +36,7 @@ INIT_LEARNING_RATE = 0.0001
 K = 36
 display_step = 20
 display_band = 20
-RESUME = True
+RESUME = False
 
 #设置随机种子
 seed = 200
@@ -207,6 +207,8 @@ def train_model_residual_lowlight_rdn():
 
         #测试代码
         net.eval()
+        psnr_list = []
+
         for batch_idx, (noisy_test, cubic_test, label_test) in enumerate(test_dataloader):
             noisy_test = noisy_test.type(torch.FloatTensor)
             label_test = label_test.type(torch.FloatTensor)
@@ -236,19 +238,28 @@ def train_model_residual_lowlight_rdn():
                     tb_writer.add_image(f"images/{epoch}_label", label_test_squeezed, 1, dataformats='CHW')
                     tb_writer.add_image(f"images/{epoch}_noisy", noisy_test_squeezed, 1, dataformats='CHW')
 
-        psnr = PSNR(denoised_hsi, test_label_hsi)
-        ssim = SSIM(denoised_hsi, test_label_hsi)
-        sam = SAM(denoised_hsi, test_label_hsi)
+            test_label_current_band = test_label_hsi[:,:,batch_idx]
+
+            psnr = PSNR(denoised_band_numpy, test_label_current_band)
+            psnr_list.append(psnr)
+        
+        mpsnr = np.mean(psnr_list)
+
+        denoised_hsi_trans = denoised_hsi.transpose(2,0,1)
+        test_label_hsi_trans = test_label_hsi.transpose(2, 0, 1)
+        mssim = SSIM(denoised_hsi_trans, test_label_hsi_trans)
+        sam = SAM(denoised_hsi_trans, test_label_hsi_trans)
+
 
         #计算pnsr和ssim
-        print("=====averPSNR:{:.3f}=====averSSIM:{:.4f}=====averSAM:{:.3f}".format(psnr, ssim, sam)) 
-        tb_writer.add_scalars("validation metrics", {'average PSNR':psnr,
-                        'average SSIM':ssim,
+        print("=====averPSNR:{:.3f}=====averSSIM:{:.4f}=====averSAM:{:.3f}".format(mpsnr, mssim, sam)) 
+        tb_writer.add_scalars("validation metrics", {'average PSNR':mpsnr,
+                        'average SSIM':mssim,
                         'avarage SAM': sam}, epoch) #通过这个我就可以看到，那个epoch的性能是最好的
 
         #保存best模型
-        if psnr > best_psnr:
-            best_psnr = psnr
+        if mpsnr > best_psnr:
+            best_psnr = mpsnr
             best_epoch = epoch
             best_iter = cur_step
             torch.save({
@@ -257,7 +268,7 @@ def train_model_residual_lowlight_rdn():
                 'gen_opt': hsid_optimizer.state_dict(),
             }, f"{save_model_path}/hsid_rdn_eca_l1_loss_600epoch_patchsize32_best.pth")
 
-        print("[epoch %d it %d PSNR: %.4f --- best_epoch %d best_iter %d Best_PSNR %.4f]" % (epoch, cur_step, psnr, best_epoch, best_iter, best_psnr))
+        print("[epoch %d it %d PSNR: %.4f --- best_epoch %d best_iter %d Best_PSNR %.4f]" % (epoch, cur_step, mpsnr, best_epoch, best_iter, best_psnr))
 
         print("------------------------------------------------------------------")
         print("Epoch: {}\tTime: {:.4f}\tLoss: {:.4f}\tLearningRate {:.6f}".format(epoch, time.time()-epoch_start_time, gen_epoch_loss, INIT_LEARNING_RATE))

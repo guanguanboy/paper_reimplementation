@@ -520,25 +520,26 @@ class HSIRDNECA(nn.Module):
         x_spectral_feature_5 = self.spectral_feature_5(x_spectral)
         x_spectral_feature_7 = self.spectral_feature_7(x_spectral)
 
-        feature_3_5_7 = torch.cat((x_spatial_feature_3, x_spatial_feature_5, x_spatial_feature_7), dim=1) #在通道维concat
-        feature_3_5_7 = self.relu(feature_3_5_7)
+        #feature_3_5_7 = torch.cat((x_spatial_feature_3, x_spatial_feature_5, x_spatial_feature_7), dim=1) #在通道维concat
+        #feature_3_5_7 = self.relu(feature_3_5_7)
         #print('feature_3_5_7 shape =', feature_3_5_7.shape)
 
-        feature_3_5_7_2 = torch.cat((x_spectral_feature_3, x_spectral_feature_5, x_spectral_feature_7), dim=1) # 在通道维concat
-        feature_3_5_7_2 = self.relu(feature_3_5_7_2)
+        #feature_3_5_7_2 = torch.cat((x_spectral_feature_3, x_spectral_feature_5, x_spectral_feature_7), dim=1) # 在通道维concat
+        #feature_3_5_7_2 = self.relu(feature_3_5_7_2)
         #print('feature_3_5_7_2 shape =', feature_3_5_7_2.shape)
 
-        feature_all = torch.cat((feature_3_5_7, feature_3_5_7_2), dim=1)
+        feature_all = torch.cat((x_spatial_feature_3, x_spatial_feature_5, x_spatial_feature_7, x_spectral_feature_3, x_spectral_feature_5, x_spectral_feature_7), dim=1)
         #print('feature_all shape =', feature_all.shape)
+        feature_all = self.relu(feature_all)
 
         f0 = self.conv1(feature_all) #x1相当于rdn中的F-1或者f0
         
         feature_rdn = self.rdn(f0)
 
-        feature_conv_3_5_7_9 = self.relu(feature_rdn)
+        #feature_conv_3_5_7_9 = self.relu(feature_rdn)
         #print('feature_conv_3_5_7_9 shape=', feature_conv_3_5_7_9.shape)
 
-        output = self.conv10(feature_conv_3_5_7_9)
+        output = self.conv10(feature_rdn)
 
         return output
 
