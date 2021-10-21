@@ -33,7 +33,7 @@ BATCH_SIZE = 128
 #os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 INIT_LEARNING_RATE = 0.0001
-K = 36
+K = 24
 display_step = 20
 display_band = 20
 RESUME = False
@@ -74,7 +74,7 @@ def train_model_residual_lowlight_rdn():
 
     device = DEVICE
     #准备数据
-    train_set = HsiCubicTrainDataset('./data/train_lowlight_patchsize32/')
+    train_set = HsiCubicTrainDataset('./data/train_lowlight_patchsize32_K24/')
     #print('trainset32 training example:', len(train_set32))
     #train_set = HsiCubicTrainDataset('./data/train_lowlight/')
 
@@ -93,7 +93,7 @@ def train_model_residual_lowlight_rdn():
     #加载测试数据
     batch_size = 1
     #test_data_dir = './data/test_lowlight/cuk12/'
-    test_data_dir = './data/test_lowlight/cubic/'
+    test_data_dir = './data/test_lowlight/cuk12/'
 
     test_set = HsiCubicLowlightTestDataset(test_data_dir)
     test_dataloader = DataLoader(dataset=test_set, batch_size=batch_size, shuffle=False)

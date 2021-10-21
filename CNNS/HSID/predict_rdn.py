@@ -23,7 +23,7 @@ def predict_lowlight_hsid_origin():
     
     #加载模型
     #hsid = HSID(36)
-    hsid = HSIRDNECA(36)
+    hsid = HSIRDNECA(24)
     hsid = nn.DataParallel(hsid).to(DEVICE)
     #device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
@@ -38,7 +38,7 @@ def predict_lowlight_hsid_origin():
 
     #加载测试数据
     batch_size = 1
-    test_data_dir = './data/test_lowlight/cubic/'
+    test_data_dir = './data/test_lowlight/cuk12/'
     test_set = HsiCubicLowlightTestDataset(test_data_dir)
     test_dataloader = DataLoader(dataset=test_set, batch_size=batch_size, shuffle=False)
 
