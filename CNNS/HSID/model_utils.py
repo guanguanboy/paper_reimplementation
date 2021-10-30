@@ -46,6 +46,11 @@ def load_start_epoch(weights):
     epoch = checkpoint["epoch"]
     return epoch
 
+def load_best_psnr(weights):
+    checkpoint = torch.load(weights)
+    best_psnr = checkpoint["best_psnr"]
+    return best_psnr
+
 def load_optim(optimizer, weights):
     checkpoint = torch.load(weights)
     optimizer.load_state_dict(checkpoint['gen_opt'])

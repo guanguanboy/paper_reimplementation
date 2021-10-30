@@ -23,7 +23,7 @@ from dir_utils import *
 from model_utils import *
 import time
 from utils import get_adjacent_spectral_bands
-from model_rdn import HSIRDN,HSIRDNMOD,HSIRDNSE,HSIRDNECA
+from model_rdn import HSIRDN,HSIRDNMOD,HSIRDNSE,HSIRDNECA,HSIRDNWithoutECA
 import model_utils
 import dir_utils
 
@@ -33,7 +33,7 @@ BATCH_SIZE = 128
 #os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 INIT_LEARNING_RATE = 0.0001
-K = 24
+K = 8
 display_step = 20
 display_band = 20
 RESUME = False
@@ -74,7 +74,7 @@ def train_model_residual_lowlight_rdn():
 
     device = DEVICE
     #准备数据
-    train_set = HsiCubicTrainDataset('./data/train_lowlight_patchsize32_K24/')
+    train_set = HsiCubicTrainDataset('./data/train_lowlik04/')
     #print('trainset32 training example:', len(train_set32))
     #train_set = HsiCubicTrainDataset('./data/train_lowlight/')
 
@@ -93,7 +93,7 @@ def train_model_residual_lowlight_rdn():
     #加载测试数据
     batch_size = 1
     #test_data_dir = './data/test_lowlight/cuk12/'
-    test_data_dir = './data/test_lowlight/cuk12/'
+    test_data_dir = './data/test_lowlight/cuk04/'
 
     test_set = HsiCubicLowlightTestDataset(test_data_dir)
     test_dataloader = DataLoader(dataset=test_set, batch_size=batch_size, shuffle=False)
@@ -103,7 +103,7 @@ def train_model_residual_lowlight_rdn():
     band_num = len(test_dataloader)
     denoised_hsi = np.zeros((width, height, band_num))
 
-    save_model_path = './checkpoints/hsirnd_eca'
+    save_model_path = './checkpoints/hsirnd_k04'
     if not os.path.exists(save_model_path):
         os.mkdir(save_model_path)
 
@@ -120,6 +120,7 @@ def train_model_residual_lowlight_rdn():
 
     #定义loss 函数
     #criterion = nn.MSELoss()
+    best_psnr = 0
 
     is_resume = RESUME
     #唤醒训练
@@ -128,6 +129,7 @@ def train_model_residual_lowlight_rdn():
         model_utils.load_checkpoint(net,path_chk_rest)
         start_epoch = model_utils.load_start_epoch(path_chk_rest) + 1
         model_utils.load_optim(hsid_optimizer, path_chk_rest)
+        best_psnr = model_utils.load_best_psnr(path_chk_rest)
 
         for i in range(1, start_epoch):
             scheduler.step()
@@ -145,13 +147,13 @@ def train_model_residual_lowlight_rdn():
 
     first_batch = next(iter(train_loader))
 
-    best_psnr = 0
     best_epoch = 0
     best_iter = 0
     if not is_resume:
         start_epoch = 1
     num_epoch = 600
 
+    mpsnr_list = []
     for epoch in range(start_epoch, num_epoch+1):
         epoch_start_time = time.time()
         scheduler.step()
@@ -244,6 +246,7 @@ def train_model_residual_lowlight_rdn():
             psnr_list.append(psnr)
         
         mpsnr = np.mean(psnr_list)
+        mpsnr_list.append(mpsnr)
 
         denoised_hsi_trans = denoised_hsi.transpose(2,0,1)
         test_label_hsi_trans = test_label_hsi.transpose(2, 0, 1)
@@ -277,8 +280,11 @@ def train_model_residual_lowlight_rdn():
         #保存当前模型
         torch.save({'epoch': epoch, 
                     'gen': net.state_dict(),
-                    'gen_opt': hsid_optimizer.state_dict()
+                    'gen_opt': hsid_optimizer.state_dict(),
+                    'best_psnr': best_psnr,
                     }, os.path.join(save_model_path,"model_latest.pth"))
+    mpsnr_list_numpy = np.array(mpsnr_list)
+    np.save(os.path.join(save_model_path, "mpsnr_per_epoch.npy"), mpsnr_list_numpy)    
     tb_writer.close()
 
 if __name__ == '__main__':
