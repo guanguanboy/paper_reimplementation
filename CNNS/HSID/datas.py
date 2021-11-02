@@ -6,7 +6,7 @@ patch_size, stride = 20, 20
 aug_times = 1
 scales = [0.5,1,1.5,2]
 batch_size = 32
-k=12
+k=18
 
 class DenoisingDataset(Dataset):#数据加上噪声
 

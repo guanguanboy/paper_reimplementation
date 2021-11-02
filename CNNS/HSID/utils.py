@@ -12,7 +12,7 @@ i表示当前通道的编号，从1到191，对于WDC这个高光谱图像BAND_N
 3，当i大于等于MEDIAN+1，小于等于BAND_NUM-K时，取i-MEDIAN到i-1(12个band) 和 
 i+1到i+MEDIAN（12个band）作为adjacent spectral bands
 """
-MEDIAN = 12
+MEDIAN = 18
 import numpy as np 
 import torch
 """
