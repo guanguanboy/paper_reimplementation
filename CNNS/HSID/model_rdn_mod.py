@@ -329,7 +329,7 @@ class DenoiseRDN_CustomECA(nn.Module):
         self.rdbModuleList = nn.ModuleList()
         for i in range(self.rdb_count):
             self.rdbModuleList.append(
-                DenoiseRDBECA(nb_layers = conv_number,input_dim=60,growth_rate=growth_rate)
+                DenoiseRDBECA(nb_layers = conv_number,input_dim=channel,growth_rate=growth_rate)
             )
 
     def forward(self,x):

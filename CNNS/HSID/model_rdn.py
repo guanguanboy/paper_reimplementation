@@ -503,12 +503,12 @@ class HSIRDNECA(nn.Module):
         #self.feature_3_5_7 concat + relu
         self.relu = nn.ReLU()
         #self.feature_3_5_7 concat + relu
-
+        self.embed_dim = 90
         #self.feature_all : Concat
-        self.conv1 = nn.Sequential(*conv_relu(120, 60))
-        self.rdn = DenoiseRDN_CustomECA(channel = 60, growth_rate=20, conv_number = 4,rdb_count=4)
+        self.conv1 = nn.Sequential(*conv_relu(120, self.embed_dim))
+        self.rdn = DenoiseRDN_CustomECA(channel = self.embed_dim, growth_rate=20, conv_number = 4,rdb_count=4)
 
-        self.conv10 = nn.Conv2d(60, 1, kernel_size=3, stride=1, padding=1)
+        self.conv10 = nn.Conv2d(self.embed_dim, 1, kernel_size=3, stride=1, padding=1)
 
 
     def forward(self, x_spatial, x_spectral):
