@@ -503,7 +503,7 @@ class HSIRDNECA(nn.Module):
         #self.feature_3_5_7 concat + relu
         self.relu = nn.ReLU()
         #self.feature_3_5_7 concat + relu
-        self.embed_dim = 90
+        self.embed_dim = 60
         #self.feature_all : Concat
         self.conv1 = nn.Sequential(*conv_relu(120, self.embed_dim))
         self.rdn = DenoiseRDN_CustomECA(channel = self.embed_dim, growth_rate=20, conv_number = 4,rdb_count=4)

@@ -106,7 +106,8 @@ class HsiCubicLowlightTestDataset(Dataset):
     def __init__(self, dataset_dir):
         super(HsiCubicLowlightTestDataset, self).__init__()
         self.image_filenames = [join(dataset_dir, x) for x in listdir(dataset_dir) if is_image_file(x)]
-        self.image_filenames.sort(key = lambda x: int(x[27:-4])) #升序排列文件名
+        dataset_dir_len = len(dataset_dir)
+        self.image_filenames.sort(key = lambda x: int(x[dataset_dir_len:-4])) #升序排列文件名
         #print(self.image_filenames)
 
     def __getitem__(self, index):
