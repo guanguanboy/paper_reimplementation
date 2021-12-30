@@ -2,7 +2,7 @@ from matplotlib.pyplot import axis, imshow
 
 import os
 #os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0, 1"
+#os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 
 import torch
 import torch.nn as nn
@@ -30,12 +30,13 @@ from utils import get_adjacent_spectral_bands
 from model_rdn import HSIRDN,HSIRDNMOD,HSIRDNSE,HSIRDNECA,HSIRDNWithoutECA
 import model_utils
 import dir_utils
+from hsi_lptn_model import HSIRDNECA_LPTN,HSIRDNECA_LPTN_FUSE,HSIRDNECA_LPTN_FUSE_CONV
 
 #设置超参数
 NUM_EPOCHS =100
-BATCH_SIZE = 256
+BATCH_SIZE = 128
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-INIT_LEARNING_RATE = 0.0001
+INIT_LEARNING_RATE = 0.0002
 K = 24
 display_step = 20
 display_band = 20
@@ -78,7 +79,7 @@ def train_model_residual_lowlight_rdn():
     device = DEVICE
     print(device)
     #准备数据
-    train_set = HsiCubicTrainDataset('./data/train_lowli_outdoor_patchsize32_k12/')
+    train_set = HsiCubicTrainDataset('./data/train_lowli_outdoor_standard_patchsize64_k12/')
     #print('trainset32 training example:', len(train_set32))
     #train_set = HsiCubicTrainDataset('./data/train_lowlight/')
 
@@ -91,7 +92,7 @@ def train_model_residual_lowlight_rdn():
     train_loader = DataLoader(dataset=train_set, batch_size=BATCH_SIZE, shuffle=True)
     
     #加载测试label数据
-    mat_src_path = './data/lowlight_origin_outdoor/test/15ms/007_2_2021-01-20_024.mat'
+    mat_src_path = './data/lowlight_origin_outdoor_standard/test/15ms/007_2_2021-01-20_024.mat'
     test_label_hsi = scio.loadmat(mat_src_path)['label_normalized_hsi']
 
     #加载测试数据
@@ -107,16 +108,16 @@ def train_model_residual_lowlight_rdn():
     band_num = len(test_dataloader)
     denoised_hsi = np.zeros((width, height, band_num))
 
-    save_model_path = './checkpoints/lhsie_outdoor'
+    save_model_path = './checkpoints/lhsie_outdoor_patchsize64_batchsize128'
     if not os.path.exists(save_model_path):
         os.mkdir(save_model_path)
 
     #创建模型
-    net = HSIRDNECA(K)
+    net = HSIRDNECA_LPTN_FUSE_CONV(K)
     init_params(net)
     device_ids = [0, 1]
-    net = nn.DataParallel(net).to(device)
-    #net = net.to(device)
+    #net = nn.DataParallel(net).to(device)
+    net = net.to(device)
 
     #创建优化器
     #hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE, betas=(0.9, 0,999))

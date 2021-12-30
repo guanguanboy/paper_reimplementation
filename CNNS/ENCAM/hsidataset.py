@@ -24,8 +24,8 @@ class HsiCubicTrainDataset(Dataset):
         noisy_exp = np.expand_dims(noisy, axis=0)
         label_exp = np.expand_dims(label, axis=0)
         #将36个band的cubic，去掉前三个，去掉后三个，变成30个band
-        noisy_cubic_30 = cubic[3:-3]
-        noisy_cubic_exp = np.expand_dims(noisy_cubic_30, axis=0) #ENCAM网络第二个分支是3D卷积
+        #noisy_cubic_30 = cubic[3:-3]
+        noisy_cubic_exp = np.expand_dims(cubic, axis=0) #ENCAM网络第二个分支是3D卷积
 
         return torch.from_numpy(noisy_exp), torch.from_numpy(noisy_cubic_exp), torch.from_numpy(label_exp)
 
@@ -46,7 +46,8 @@ class HsiCubicLowlightTestDataset(Dataset):
     def __init__(self, dataset_dir):
         super(HsiCubicLowlightTestDataset, self).__init__()
         self.image_filenames = [join(dataset_dir, x) for x in listdir(dataset_dir) if is_image_file(x)]
-        self.image_filenames.sort(key = lambda x: int(x[33:-4])) #升序排列文件名
+        dataset_dir_len = len(dataset_dir)
+        self.image_filenames.sort(key = lambda x: int(x[dataset_dir_len:-4])) #升序排列文件名
         print(self.image_filenames)
 
     def __getitem__(self, index):
@@ -59,8 +60,8 @@ class HsiCubicLowlightTestDataset(Dataset):
         label_exp = np.expand_dims(label, axis=0)
 
         #将36个band的cubic，去掉前三个，去掉后三个，变成30个band
-        noisy_cubic_30 = noisy_cubic[3:-3]
-        noisy_cubic_exp = np.expand_dims(noisy_cubic_30, axis=0) #ENCAM网络第二个分支是3D卷积
+        #noisy_cubic_30 = noisy_cubic[3:-3]
+        noisy_cubic_exp = np.expand_dims(noisy_cubic, axis=0) #ENCAM网络第二个分支是3D卷积
 
         return torch.from_numpy(noisy_exp), torch.from_numpy(noisy_cubic_exp), torch.from_numpy(label_exp)
 

@@ -67,8 +67,8 @@ channels= 64  # 191 channels
 #gen_test_patches(test, label, channels)
 
 
-noisy_mat_dir = '/mnt/liguanlin/codes/papercodes/paper_reimplementation/CNNS/HSID/data/lowlight_origin_outdoor/test/1ms'
-label_mat_dir = '/mnt/liguanlin/codes/papercodes/paper_reimplementation/CNNS/HSID/data/lowlight_origin_outdoor/test/15ms'
+noisy_mat_dir = './data/lowlight_origin_outdoor_standard/test/1ms'
+label_mat_dir = './data/lowlight_origin_outdoor_standard/test/15ms'
 noisy_mat_list = os.listdir(noisy_mat_dir)
 label_mat_list = os.listdir(label_mat_dir)
 noisy_mat_list.sort()

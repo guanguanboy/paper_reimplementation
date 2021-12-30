@@ -18,13 +18,13 @@ from model import HSID
 import numpy as np
 from torch.utils.data import Dataset
 import torch
-patch_size, stride = 20, 20
+patch_size, stride = 64, 64
 
-k = 4
+k = 12
 count = 0
 
 #save_path = './data/train_lowlight/'
-save_path = './data/train_lowlik04/'
+save_path = './data/train_lowlight_patchsize64_train10_k12/'
 if not os.path.exists(save_path):
     os.mkdir(save_path)
 
@@ -65,8 +65,8 @@ def gen_patches(numpy_data_noisy,numpy_data_label, channel_is):
     #return patches,cubic_paches
 
 
-noisy_mat_dir = '/mnt/liguanlin/codes/papercodes/paper_reimplementation/CNNS/HSID/data/lowlight_origin/train/1ms'
-label_mat_dir = '/mnt/liguanlin/codes/papercodes/paper_reimplementation/CNNS/HSID/data/lowlight_origin/train/15ms'
+noisy_mat_dir = '/data2/liguanlin/codes/paper_reimplementation/CNNS/HSID/data/lowlight_origin/train10/1ms'
+label_mat_dir = '/data2/liguanlin/codes/paper_reimplementation/CNNS/HSID/data/lowlight_origin/train10/15ms'
 noisy_mat_list = os.listdir(noisy_mat_dir)
 label_mat_list = os.listdir(label_mat_dir)
 noisy_mat_list.sort()
@@ -80,7 +80,7 @@ mat_count = len(noisy_mat_list)
 channels= 64  # 191 channels
 
 
-for i in range(5):
+for i in range(mat_count):
     noisy = scio.loadmat(noisy_mat_dir + '/' + noisy_mat_list[i])['lowlight_normalized_hsi']
     label = scio.loadmat(label_mat_dir + '/' + label_mat_list[i])['label_normalized_hsi']
 

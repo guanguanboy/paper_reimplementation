@@ -18,13 +18,13 @@ from model import HSID
 import numpy as np
 from torch.utils.data import Dataset
 import torch
-patch_size, stride = 32, 32
+patch_size, stride = 64, 64
 
 k = 12
 count = 0
 
 #save_path = './data/train_lowlight/'
-save_path = './data/train_lowli_outdoor_standard_patchsize32_k12/'
+save_path = './data/train_lowli_outdoor_standard_patchsize64_k12/'
 if not os.path.exists(save_path):
     os.mkdir(save_path)
 
@@ -65,8 +65,8 @@ def gen_patches(numpy_data_noisy,numpy_data_label, channel_is):
     #return patches,cubic_paches
 
 
-noisy_mat_dir = '/mnt/liguanlin/codes/papercodes/paper_reimplementation/CNNS/HSID/data/lowlight_origin_outdoor_standard/train/1ms'
-label_mat_dir = '/mnt/liguanlin/codes/papercodes/paper_reimplementation/CNNS/HSID/data/lowlight_origin_outdoor_standard/train/15ms'
+noisy_mat_dir = './data/lowlight_origin_outdoor_standard/train/1ms'
+label_mat_dir = './data/lowlight_origin_outdoor_standard/train/15ms'
 noisy_mat_list = os.listdir(noisy_mat_dir)
 label_mat_list = os.listdir(label_mat_dir)
 noisy_mat_list.sort()

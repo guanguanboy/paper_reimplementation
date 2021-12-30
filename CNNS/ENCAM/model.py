@@ -135,8 +135,8 @@ class ENCAM(nn.Module):
         self.f2d_5_2 = nn.Conv2d(32, 16, (3, 1), 1, (1, 0))
         self.f2d_5_3 = nn.Conv2d(32, 16, (1, 3), 1, (0, 1))
 
-        self.f3d_1 = nn.Conv3d(1, 16, (30, 3, 3), 1, (0, 1, 1))
-        self.f3d_2 = nn.Conv3d(1, 16, (30, 7, 7), 1, (0, 3, 3))
+        self.f3d_1 = nn.Conv3d(1, 16, (24, 3, 3), 1, (0, 1, 1))
+        self.f3d_2 = nn.Conv3d(1, 16, (24, 7, 7), 1, (0, 3, 3))
 
         self.NCB_1 = NCB(channels, channels, grid=[6, 6]) #grid 用于指定non-local的分块的数量
         self.NCB_2 = NCB(channels, channels, grid=[4, 4])
