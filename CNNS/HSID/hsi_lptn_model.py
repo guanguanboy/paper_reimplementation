@@ -245,14 +245,14 @@ class HSIRDNECA_LPTN_FUSE_CONV(nn.Module):
         self.embed_dim = 60
         #self.feature_all : Concat
         self.conv1 = nn.Sequential(*conv_relu(120, self.embed_dim))
-        self.rdn = DenoiseRDN_CustomECA(channel = self.embed_dim, growth_rate=20, conv_number = 4,rdb_count=4)
+        self.rdn = DenoiseRDN_CustomECA(channel = self.embed_dim, growth_rate=20, conv_number = 3,rdb_count=3)
 
         self.conv10 = nn.Conv2d(self.embed_dim, 1, kernel_size=3, stride=1, padding=1)
 
         self.lap_pyramid = Lap_Pyramid_Conv_Multi(num_high=1, device=torch.device('cuda'), chal_num=1)
         self.lap_pyramid_cubic = Lap_Pyramid_Conv_Multi(num_high=1, device=torch.device('cuda'), chal_num=24)
 
-        self.trans_high = Trans_high_Fuse(num_residual_blocks=3, num_high=1)
+        self.trans_high = Trans_high_Fuse(num_residual_blocks=2, num_high=1)
         self.conv_last = nn.Conv2d(1, 1, 3, 1, 1)
 
     def forward(self, x_spatial, x_spectral):

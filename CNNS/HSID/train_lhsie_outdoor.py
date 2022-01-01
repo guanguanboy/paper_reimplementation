@@ -34,7 +34,7 @@ from hsi_lptn_model import HSIRDNECA_LPTN,HSIRDNECA_LPTN_FUSE,HSIRDNECA_LPTN_FUS
 
 #设置超参数
 NUM_EPOCHS =100
-BATCH_SIZE = 128
+BATCH_SIZE = 256
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 INIT_LEARNING_RATE = 0.0002
 K = 24
@@ -108,7 +108,7 @@ def train_model_residual_lowlight_rdn():
     band_num = len(test_dataloader)
     denoised_hsi = np.zeros((width, height, band_num))
 
-    save_model_path = './checkpoints/lhsie_outdoor_patchsize64_batchsize128'
+    save_model_path = './checkpoints/lhsie_outdoor_patchsize64_batchsize128_redisualblock_2'
     if not os.path.exists(save_model_path):
         os.mkdir(save_model_path)
 
@@ -159,7 +159,7 @@ def train_model_residual_lowlight_rdn():
     best_iter = 0
     if not is_resume:
         start_epoch = 1
-    num_epoch = 600
+    num_epoch = 200
 
     mpsnr_list = []
     for epoch in range(start_epoch, num_epoch+1):

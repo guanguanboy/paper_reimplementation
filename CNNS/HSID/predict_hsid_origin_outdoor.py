@@ -32,16 +32,16 @@ def predict_lowlight_hsid_origin():
 
     save_model_path = './checkpoints/hsid_origin_outdoor_patchsize64'
 
-    hsid.load_state_dict(torch.load(save_model_path + '/hsid_rdn_eca_l1_loss_patchsize64_best.pth', map_location='cuda:0')['gen'])
+    hsid.load_state_dict(torch.load(save_model_path + '/hsid_origin_outdoor_l2_loss_100.pth', map_location='cuda:0')['gen'])
 
     #加载测试label数据
-    mat_src_path = './data/lowlight_origin_outdoor_standard/test/15ms/007_2_2021-01-19_050.mat'
+    mat_src_path = './data/lowlight_origin_outdoor_standard/test/15ms/007_2_2021-01-20_024.mat'
     test_label_hsi = scio.loadmat(mat_src_path)['label_normalized_hsi']
 
     #加载测试数据
     batch_size = 1
     #test_data_dir = './data/test_lowlight/cuk12/'
-    test_data_dir = './data/test_lowli_outdoor_k12/007_2_2021-01-19_050/'
+    test_data_dir = './data/test_lowli_outdoor_k12/007_2_2021-01-20_024/'
 
     test_set = HsiCubicLowlightTestDataset(test_data_dir)
     test_dataloader = DataLoader(dataset=test_set, batch_size=batch_size, shuffle=False)

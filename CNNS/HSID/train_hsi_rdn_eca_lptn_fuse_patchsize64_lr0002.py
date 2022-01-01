@@ -36,7 +36,7 @@ from hsi_lptn_model import HSIRDNECA_LPTN,HSIRDNECA_LPTN_FUSE,HSIRDNECA_LPTN_FUS
 NUM_EPOCHS =100
 BATCH_SIZE = 128
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-INIT_LEARNING_RATE = 0.0001
+INIT_LEARNING_RATE = 0.0002
 K = 24
 display_step = 20
 display_band = 20
@@ -108,7 +108,7 @@ def train_model_residual_lowlight_rdn():
     band_num = len(test_dataloader)
     denoised_hsi = np.zeros((width, height, band_num))
 
-    save_model_path = './checkpoints/hsirnd_indoor_lptn_fuse_patchsize64_lr0001_lastconv'
+    save_model_path = './checkpoints/hsirnd_indoor_lptn_fuse_patchsize64_redisualblock_2_epoch100_150'
     if not os.path.exists(save_model_path):
         os.mkdir(save_model_path)
 
@@ -122,7 +122,7 @@ def train_model_residual_lowlight_rdn():
     #创建优化器
     #hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE, betas=(0.9, 0,999))
     hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE)
-    scheduler = MultiStepLR(hsid_optimizer, milestones=[200,400], gamma=0.5)
+    scheduler = MultiStepLR(hsid_optimizer, milestones=[100,150], gamma=0.5)
 
     #定义loss 函数
     #criterion = nn.MSELoss()
@@ -159,7 +159,7 @@ def train_model_residual_lowlight_rdn():
     best_iter = 0
     if not is_resume:
         start_epoch = 1
-    num_epoch = 600
+    num_epoch = 200
 
     mpsnr_list = []
     for epoch in range(start_epoch, num_epoch+1):

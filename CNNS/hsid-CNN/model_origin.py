@@ -23,9 +23,9 @@ class HSIDCNN(nn.Module):
         self.f5_1 = nn.Conv2d(1, 20, 5, 1, 2)
         self.f7_1 = nn.Conv2d(1, 20, 7, 1, 3)
 
-        self.f3_2 = nn.Conv3d(1, 20, (36, 3, 3), 1, (0, 1, 1))
-        self.f5_2 = nn.Conv3d(1, 20, (36, 5, 5), 1, (0, 2, 2))
-        self.f7_2 = nn.Conv3d(1, 20, (36, 7, 7), 1, (0, 3, 3))
+        self.f3_2 = nn.Conv3d(1, 20, (24, 3, 3), 1, (0, 1, 1))
+        self.f5_2 = nn.Conv3d(1, 20, (24, 5, 5), 1, (0, 2, 2))
+        self.f7_2 = nn.Conv3d(1, 20, (24, 7, 7), 1, (0, 3, 3))
 
         self.conv1 = nn.Sequential(*conv_relu(120, 60), )
         self.conv2 = nn.Sequential(*conv_relu(60, 60), )
@@ -40,6 +40,7 @@ class HSIDCNN(nn.Module):
 
     def forward(self, x, y):
 
+        y = y.unsqueeze(dim=1)
 
         f3_1 = self.f3_1(x)
         f5_1 = self.f5_1(x)
@@ -88,3 +89,15 @@ class HSIDCNN(nn.Module):
                 init.constant_(m.weight, 1)
                 init.constant_(m.bias, 0)
 
+def test():
+    net = HSIDCNN()
+    print(net)
+
+    data = torch.randn(1, 24, 200, 200)
+    data1 = torch.randn(1, 1, 200, 200)
+
+    output = net(data1, data)
+    print(output.shape)
+
+if __name__ == '__main__':
+    test()

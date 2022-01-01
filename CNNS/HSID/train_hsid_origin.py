@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data.dataset import ConcatDataset
 
-from model_hsid_origin import HSID_origin
+from model_hsid_origin import HSID_origin, HSID_origin_3D
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
@@ -101,12 +101,12 @@ def train_model_residual_lowlight():
     band_num = len(test_dataloader)
     denoised_hsi = np.zeros((width, height, band_num))
 
-    save_model_path = './checkpoints/hsid_origin_patchsize64_l2_loss'
+    save_model_path = './checkpoints/hsid3d_origin_patchsize64_l2'
     if not os.path.exists(save_model_path):
         os.mkdir(save_model_path)
 
     #创建模型
-    net = HSID_origin(K)
+    net = HSID_origin_3D(K)
     init_params(net)
     #net = nn.DataParallel(net).to(device)
     net = net.to(device)

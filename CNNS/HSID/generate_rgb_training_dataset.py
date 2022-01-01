@@ -47,8 +47,8 @@ def gen_patches(numpy_data_noisy,numpy_data_label, channel_is):
 
     for channel_i in range(channel_is):
         
-        noisy = numpy_data_noisy[channel_i,:, :]
-        label = numpy_data_label[channel_i,:, :]
+        noisy = numpy_data_noisy[channel_i,0:384, 0:384]
+        label = numpy_data_label[channel_i,0:384, 0:384]
         noisy_int8 = (noisy*255).astype(np.uint8)
         label_int8 = (label*255).astype(np.uint8)
         noisy_rgb = np.stack((noisy_int8, noisy_int8, noisy_int8), axis=2)
@@ -67,8 +67,8 @@ def gen_patches(numpy_data_noisy,numpy_data_label, channel_is):
     #return patches,cubic_paches
 
 
-noisy_mat_dir = '/mnt/liguanlin/codes/papercodes/paper_reimplementation/CNNS/HSID/data/lowlight_origin/train/1ms'
-label_mat_dir = '/mnt/liguanlin/codes/papercodes/paper_reimplementation/CNNS/HSID/data/lowlight_origin/train/15ms'
+noisy_mat_dir = '/data2/liguanlin/codes/paper_reimplementation/CNNS/HSID/data/lowlight_origin/train/1ms'
+label_mat_dir = '/data2/liguanlin/codes/paper_reimplementation/CNNS/HSID/data/lowlight_origin/train/15ms'
 noisy_mat_list = os.listdir(noisy_mat_dir)
 label_mat_list = os.listdir(label_mat_dir)
 noisy_mat_list.sort()
