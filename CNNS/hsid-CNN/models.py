@@ -3,7 +3,19 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
 
+"""
+As shown in Fig. 3, a denoising block contains several
+units. The unit inside the denoising block also
+adopts the partial-dense connection mode. Each denoising
+unit contains two different types of convolution kernels:
+one is the common convolution with dilation = 1; the
+other is the atrous convolution with dilation = 2. Then,
+combine the outputs of the two kinds of convolutions
+together.
 
+conv_relu 实现了一个denoising unit
+
+"""
 class conv_relu(nn.Module):
     def __init__(self, in_channels, out_channels, stride=1):
         super(conv_relu, self).__init__()
@@ -43,13 +55,20 @@ class ChannelAttention_GP(nn.Module):
     def forward(self, x,y):
         avg_out = self.fc2(self.relu(self.fc1(self.avg_pool_feature(x))))
         noise_out = self.fc2(self.relu(self.fc1(self.avg_pool_noises(y))))
-
-
-
         out = avg_out + noise_out
         return self.sigmoid(out)
 
+"""
+In order to extract the multiscale spatial?spectral joint features
+effectively, a partial-dense denoising network with atrous
+convolution is proposed in this article
 
+the output of the denoising block in the
+partial-dense subnetwork is only transmitted to the next block
+and the last block.
+
+SDblock 实现了partial-dense denoising subnetwork 中的一个block
+"""
 class SDblock(nn.Module):
     def __init__(self, in_channels,out_channels):
         super(SDblock, self).__init__()
@@ -69,7 +88,7 @@ class SDblock(nn.Module):
         )
 
     def forward(self, x):
-        layer1=self.layer1(x)
+        layer1=self.layer1(x) #注意到layer1最后只给到了layer2和concat层。
         layer2=self.layer2(torch.cat((x,layer1),dim=1))
         layer3=self.layer3(torch.cat((x,layer2),dim=1))
         layer4=self.layer4(torch.cat((x,layer3),dim=1))
@@ -202,6 +221,7 @@ class PartialDNet(nn.Module):
         self.f_3 = nn.Conv2d(2, 32, 3, 1, 1)
         self.f3_2 = nn.Conv3d(1, 32, (72, 3, 3), 1, (0, 1, 1))
 
+        #下面的四个block和self.out 实现了partial-dense denoising subnetwork
         self.block1 = SDblock(64, 48)
         self.block2 = SDblock(112, 48)
         self.block3 = SDblock(112, 48)
@@ -215,6 +235,12 @@ class PartialDNet(nn.Module):
 
         self.ca = ChannelAttention_GP(36)
     def forward(self, x, y,noise_map_x,noise_map_y):
+        """
+            x, 应该是带躁声的k-th band
+            y，应该是带噪声的adjacent bands
+            noise_map_x，估计出的对应于x的noise map
+            noise_map_y，估计出的对应于y的noise map
+        """
         y_map = y.squeeze(1)
         noise_map = noise_map_y.squeeze(1)
 
@@ -222,10 +248,10 @@ class PartialDNet(nn.Module):
         y = y_map.unsqueeze(1)
         noise_map_y = noise_map.unsqueeze(1)
 
-
+        #到这里y变成了经过通道注意力之后的y
         f3_2 = self.f3_2(torch.cat((y,noise_map_y),dim=2)).squeeze(2)
         f3 = self.f_3(torch.cat((x, noise_map_x), dim=1))
-        out3 = F.relu(torch.cat((f3, f3_2), dim=1))
+        out3 = F.relu(torch.cat((f3, f3_2), dim=1)) #out3就是连接Noise Adaptive Subnetwork和partial-dense denosing subnetwork的特征图
 
         block1 = self.block1(out3)
         block2 = self.block2(torch.cat((block1, out3), dim=1))

@@ -1,13 +1,14 @@
 
 %加噪level 25的noise数据
-load('D:\Codes\codes_of_paper_reimplementation\CNNS\HSID\data\test\GT_crop_noise.mat');
+load('D:\Codes\codes_of_paper_reimplementation\CNNS\HSID\data\test\GT_crop_noise_level25.mat');
 figure(1);
 imshow(noisy(:,:,50));
 
 figure(4);
 imshow(label(:,:,50));
 %加噪去噪后的数据
-load('D:\Codes\codes_of_paper_reimplementation\CNNS\HSID\data\testresult\result6.mat');
+load('D:\Codes\codes_of_paper_reimplementation\CNNS\HSID\data\testresult\result34.mat');
+%load('D:\Codes\codes_of_paper_reimplementation\CNNS\HSID\data\testresult\result35_hsidcnn.mat');
 figure(2);
 imshow(denoised(:,:,50));
 
