@@ -14,30 +14,34 @@ from torchsummary import summary
 from thop import profile
 from thop import clever_format
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 #DEVICE = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 #超参数定义
 K = 36
 
 from hsidataset import HsiCubicLowlightTestDataset
-from model_hsid_origin import HSID_origin
+from model_hsid_origin import HSID_origin, HSID_origin_3D
 
 def predict_lowlight_hsid_origin():
     
     #加载模型
     #hsid = HSID(36)
-    hsid = HSID_origin(24)
+    hsid = HSID_origin_3D(24)
     #hsid = nn.DataParallel(hsid).to(DEVICE)
     #device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
-    save_model_path = './checkpoints/hsid_origin_patchsize64'
+    save_model_path = './checkpoints/hsid3d_origin_patchsize64/'
 
     hsid = hsid.to(DEVICE)
-    hsid.load_state_dict(torch.load(save_model_path + '/hsid_origin_l1_loss_28.pth', map_location='cuda:0')['gen'])
+    hsid.load_state_dict(torch.load(save_model_path + '/hsid_origin_l1_loss_best.pth', map_location='cuda:0')['gen'])
 
     #加载测试label数据
-    mat_src_path = './data/test_lowlight/origin/soup_bigcorn_orange_1ms.mat'
-    test_label_hsi = scio.loadmat(mat_src_path)['label']
+    #mat_src_path = './data/test_lowlight/origin/soup_bigcorn_orange_1ms.mat'
+    #test_label_hsi = scio.loadmat(mat_src_path)['label']
+    #加载测试indian label数据
+    mat_src_path = './data/indian/IndianPines_Data_normalized.mat'
+    test_label_hsi = scio.loadmat(mat_src_path)['normalized_img']    
+    
     weight, height, bandnum = test_label_hsi.shape
     summary(hsid, input_size=[[1, weight, height], [24, weight, height]], batch_size=-1)
     
@@ -51,7 +55,9 @@ def predict_lowlight_hsid_origin():
 
     #加载测试数据
     batch_size = 1
-    test_data_dir = './data/test_lowlight/cuk12/'
+    #test_data_dir = './data/test_lowlight/cuk12/'
+    test_data_dir = './data/test_lowli_k12_darked_indian/IndianPines_Data_normalized_result/' 
+
     test_set = HsiCubicLowlightTestDataset(test_data_dir)
     test_dataloader = DataLoader(dataset=test_set, batch_size=batch_size, shuffle=False)
 
@@ -60,9 +66,10 @@ def predict_lowlight_hsid_origin():
     band_num = len(test_dataloader)
     denoised_hsi = np.zeros((width, height, band_num))
 
+    psnr_list = []
 
     #指定结果输出路径
-    test_result_output_path = './data/testresult/'
+    test_result_output_path = './data/testresult/hsid3d_origin_indoor_darked_indian_pine/'
     if not os.path.exists(test_result_output_path):
         os.makedirs(test_result_output_path)
 
@@ -96,15 +103,27 @@ def predict_lowlight_hsid_origin():
 
             denoised_hsi[:,:,batch_idx] = denoised_band_numpy
 
-    psnr = PSNR(denoised_hsi, test_label_hsi)
-    ssim = SSIM(denoised_hsi, test_label_hsi)
-    sam = SAM(denoised_hsi, test_label_hsi)
+        test_label_current_band = test_label_hsi[:,:,batch_idx]
+        psnr = PSNR(denoised_band_numpy, test_label_current_band)
+        psnr_list.append(psnr)
+
+    mpsnr = np.mean(psnr_list)
+    #mssim = np.mean(ssim_list)
+    #sam = SAM(denoised_hsi.transpose(2,0,1), test_label_hsi.transpose(2, 0, 1))
+
+    denoised_hsi_trans = denoised_hsi.transpose(2,0,1)
+    test_label_hsi_trans = test_label_hsi.transpose(2, 0, 1)
+    mssim = SSIM(denoised_hsi_trans, test_label_hsi_trans)
+    sam = SAM(denoised_hsi_trans, test_label_hsi_trans)
 
     #mdict是python字典类型，value值需要是一个numpy数组
-    scio.savemat(test_result_output_path + 'result.mat', {'denoised': denoised_hsi})
+    scio.savemat(test_result_output_path + 'hsid_origin3d_try2_result.mat', {'denoised': denoised_hsi})
 
     #计算pnsr和ssim
-    print("=====averPSNR:{:.4f}=====averSSIM:{:.4f}=====averSAM:{:.3f}".format(psnr, ssim, sam)) 
+    print("=====averPSNR:{:.4f}=====averSSIM:{:.4f}=====averSAM:{:.4f}".format(mpsnr, mssim, sam)) 
+
+    psnr_res_list = np.load(save_model_path + 'mpsnr_per_epoch.npy')
+    print(max(psnr_res_list))
 
 if __name__ == '__main__':
     predict_lowlight_hsid_origin()

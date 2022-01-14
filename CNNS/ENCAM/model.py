@@ -135,6 +135,88 @@ class ENCAM(nn.Module):
         self.f2d_5_2 = nn.Conv2d(32, 16, (3, 1), 1, (1, 0))
         self.f2d_5_3 = nn.Conv2d(32, 16, (1, 3), 1, (0, 1))
 
+        self.f3d_1 = nn.Conv3d(1, 16, (36, 3, 3), 1, (0, 1, 1))
+        self.f3d_2 = nn.Conv3d(1, 16, (36, 7, 7), 1, (0, 3, 3))
+
+        self.NCB_1 = NCB(channels, channels, grid=[6, 6]) #grid 用于指定non-local的分块的数量
+        self.NCB_2 = NCB(channels, channels, grid=[4, 4])
+        self.NCB_3 = NCB(channels, channels, grid=[2, 2])
+        self.NCB_4 = NCB(channels, channels, grid=[2, 2])
+        self.NCB_5 = NCB(channels, channels, grid=[4, 4])
+        self.NCB_6 = NCB(channels, channels, grid=[6, 6])
+
+        self.Dblock1 = Denoising_Block()
+        self.Dblock2 = Denoising_Block()
+        self.Dblock3 = Denoising_Block()
+        self.Dblock4 = Denoising_Block()
+        self.Dblock5 = Denoising_Block()
+        self.Dblock6 = Denoising_Block()
+
+        self.concat = nn.Sequential(
+            nn.Conv2d(672, 1, 3, 1, 1),
+
+        )
+        self._initialize_weights()
+
+        self.ca = ChannelAttention(672)
+
+    def forward(self, x, y): #x是单波段的噪声 shape:(batch, 1, 20, 20)，y是多波段的噪声 shape:(batch, 1, 30, 20, 20)
+        f2d_3 = self.f2d_3(x) # shape:(batch, 32, 20, 20)
+        f2d_5_1 = self.f2d_5_1(x) #(batch, 32, 20, 20)
+        f2d_5_2 = self.f2d_5_2(F.relu(f2d_5_1)) # shape:(batch, 16, 20, 20)
+        f2d_5_3 = self.f2d_5_3(F.relu(f2d_5_1)) # shape:(batch, 16, 20, 20)
+
+        #y =y.unsqueeze(1)
+        #print(y.shape)
+        f3d_1 = self.f3d_1(y) #三维卷积，shape:(batch, 16, 1, 20, 20)
+        f3d_2 = self.f3d_2(y) #(batch, 16, 1, 20, 20)
+        #print(f3d_1.shape, f3d_2.shape)
+        out1 = F.relu(torch.cat((f2d_3, f2d_5_2, f2d_5_3), dim=1)) #shape:(batch, 64, 20, 20)
+        out2 = F.relu(torch.cat((f3d_1, f3d_2), dim=1)).squeeze(2) #shape:(batch, 32, 20, 20)
+        #print(out1.shape)
+        #print(out2.shape)
+        out3 = torch.cat((out1, out2), dim=1) ##shape:(batch, 96, 20, 20)
+
+        block1 = self.Dblock1(self.NCB_1(out3)) #shape:(batch, 96, 20, 20)
+        block2 = self.Dblock2(self.NCB_2(out3 +block1))#shape:(batch, 96, 20, 20)
+        block3 = self.Dblock3(self.NCB_3(out3 +block2))#shape:(batch, 96, 20, 20)
+        block4 = self.Dblock4(self.NCB_4(out3 +block3))#shape:(batch, 96, 20, 20)
+        block5 = self.Dblock5(self.NCB_5(out3 +block4))#shape:(batch, 96, 20, 20)
+        block6 = self.Dblock6(self.NCB_6(out3 +block5))#shape:(batch, 96, 20, 20)
+
+
+        concat = torch.cat(
+            (out3, block1, block2, block3, block4, block5, block6), dim=1)#shape:(batch, 96*7=672, 20, 20)
+        concat = concat * self.ca(concat) #shape:(batch, 672, 20, 20)
+        concat = self.concat(concat) #shape:(batch, 1, 20, 20)
+
+
+        return concat
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                init.orthogonal_(m.weight)
+
+                if m.bias is not None:
+                    init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Conv3d):
+                init.orthogonal_(m.weight)
+                # print('init weight')
+                if m.bias is not None:
+                    init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm2d):
+                init.constant_(m.weight, 1)
+                init.constant_(m.bias, 0)
+
+class ENCAM_Outdoor(nn.Module):
+    def __init__(self ,channels=96):
+        super(ENCAM_Outdoor, self).__init__()
+
+        self.f2d_3 = nn.Conv2d(1, 32, 3, 1, 1)
+        self.f2d_5_1 = nn.Conv2d(1, 32, 3, 1, 1)
+        self.f2d_5_2 = nn.Conv2d(32, 16, (3, 1), 1, (1, 0))
+        self.f2d_5_3 = nn.Conv2d(32, 16, (1, 3), 1, (0, 1))
+
         self.f3d_1 = nn.Conv3d(1, 16, (24, 3, 3), 1, (0, 1, 1))
         self.f3d_2 = nn.Conv3d(1, 16, (24, 7, 7), 1, (0, 3, 3))
 
@@ -166,11 +248,14 @@ class ENCAM(nn.Module):
         f2d_5_2 = self.f2d_5_2(F.relu(f2d_5_1)) # shape:(batch, 16, 20, 20)
         f2d_5_3 = self.f2d_5_3(F.relu(f2d_5_1)) # shape:(batch, 16, 20, 20)
 
+        #y =y.unsqueeze(1)
         f3d_1 = self.f3d_1(y) #三维卷积，shape:(batch, 16, 1, 20, 20)
         f3d_2 = self.f3d_2(y) #(batch, 16, 1, 20, 20)
 
         out1 = F.relu(torch.cat((f2d_3, f2d_5_2, f2d_5_3), dim=1)) #shape:(batch, 64, 20, 20)
         out2 = F.relu(torch.cat((f3d_1, f3d_2), dim=1)).squeeze(2) #shape:(batch, 32, 20, 20)
+        #print(out1.shape)
+        #print(out2.shape)
         out3 = torch.cat((out1, out2), dim=1) ##shape:(batch, 96, 20, 20)
 
         block1 = self.Dblock1(self.NCB_1(out3)) #shape:(batch, 96, 20, 20)

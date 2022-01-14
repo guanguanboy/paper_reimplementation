@@ -26,7 +26,7 @@ from utils import get_adjacent_spectral_bands
 
 #设置超参数
 NUM_EPOCHS =100
-BATCH_SIZE = 128
+BATCH_SIZE = 256
 #os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
 DEVICE = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 INIT_LEARNING_RATE = 0.001
@@ -101,7 +101,7 @@ def train_model_residual_lowlight():
     band_num = len(test_dataloader)
     denoised_hsi = np.zeros((width, height, band_num))
 
-    save_model_path = './checkpoints/hsid3d_origin_outdoor_patchsize64'
+    save_model_path = './checkpoints/hsid3d_origin_outdoor_patchsize64_batchsize256'
     if not os.path.exists(save_model_path):
         os.mkdir(save_model_path)
 

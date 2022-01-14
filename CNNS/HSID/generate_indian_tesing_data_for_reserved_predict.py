@@ -24,11 +24,12 @@ import matplotlib.pyplot as plt
 k = 12
 
 #save_path = './data/test_lowlight/cubic/'
-save_path = './data/test_lowli_outdoor_downsampled_k12/'
+#save_path = './data/test_lowli_outdoor_k12_indian_reversed/'
+save_path = './data/test_lowli_k12_indian/'
 if not os.path.exists(save_path):
     os.mkdir(save_path)
 
-def gen_test_patches(numpy_data,label, channel_is, mat_name):
+def gen_test_patches(numpy_data, channel_is, mat_name):
     # get multiscale patches from a single image
     channels=numpy_data.shape[0]
 
@@ -41,7 +42,6 @@ def gen_test_patches(numpy_data,label, channel_is, mat_name):
     for channel_i in range(channel_is):
 
         x = numpy_data[channel_i,:, :]
-        x_label = label[channel_i,:, :]
         #print(x.shape)
         if channel_i < k:
             # print(channel_i)
@@ -60,40 +60,40 @@ def gen_test_patches(numpy_data,label, channel_is, mat_name):
         name =  f'{count}.mat'
         file_name = os.path.join(file_path, name)
         count = count + 1
-        scio.savemat(file_name, {'noisy': x, 'cubic': y, 'label': x_label})  
+        scio.savemat(file_name, {'noisy': x, 'cubic': y, 'label': x})  
 
 channels= 64  # 191 channels
 
 #gen_test_patches(test, label, channels)
 
 
-noisy_mat_dir = './data/lowlight_origin_outdoor_standard/test/1ms'
-label_mat_dir = './data/lowlight_origin_outdoor_standard/test/15ms'
-noisy_mat_list = os.listdir(noisy_mat_dir)
+#noisy_mat_dir = '/mnt/liguanlin/codes/papercodes/paper_reimplementation/CNNS/HSID/data/test'
+#label_mat_dir = '/mnt/liguanlin/codes/papercodes/paper_reimplementation/CNNS/HSID/data/indian'
+
+#生成低光照的测试数据
+noisy_mat_dir = '/mnt/liguanlin/codes/papercodes/paper_reimplementation/CNNS/HSID/data/testresult/outdoor_standard_reversed_india'
+label_mat_dir = '/data2/liguanlin/codes/paper_reimplementation/CNNS/HSID/data/indian'
+#noisy_mat_list = os.listdir(noisy_mat_dir)
 label_mat_list = os.listdir(label_mat_dir)
-noisy_mat_list.sort()
+#noisy_mat_list.sort()
 label_mat_list.sort()
 
-print(noisy_mat_list)
+#print(noisy_mat_list)
 print(label_mat_list)
 
-mat_count = len(noisy_mat_list)
+mat_count = len(label_mat_list)
 
-channels= 64  # 191 channels
+channels= 200  # 191 channels
 
 
 for i in range(mat_count):
-    noisy = scio.loadmat(noisy_mat_dir + '/' + noisy_mat_list[i])['lowlight_normalized_hsi']
-    label = scio.loadmat(label_mat_dir + '/' + label_mat_list[i])['label_normalized_hsi']
+    #noisy = scio.loadmat(noisy_mat_dir + '/' + noisy_mat_list[i])['normalized_img']
+    #noisy = scio.loadmat(noisy_mat_dir + '/' + noisy_mat_list[i])['denoised']
+    label = scio.loadmat(label_mat_dir + '/' + label_mat_list[i])['normalized_img']
 
     #print(noisy.shape) #(390, 512, 64) height, width, bandnum
     #print(label.shape)
-    down_noisy = noisy[::4,::4,::1]
-    print(down_noisy.shape)
-    down_label = label[::4,::4,::1]
-    print(down_label.shape)
-
-    noisy=down_noisy.transpose((2,0,1)) #将通道维放在最前面
-    label=down_label.transpose((2,0,1)) #将通道维放在最前面
-    mat_name = noisy_mat_list[i]
-    gen_test_patches(noisy, label, channels, mat_name[:-4])# 这里的-4表示去掉.mat
+    #noisy=noisy.transpose((2,0,1)) #将通道维放在最前面
+    label=label.transpose((2,0,1)) #将通道维放在最前面
+    mat_name = label_mat_list[i]
+    gen_test_patches(label, channels, mat_name[:-4])# 这里的-4表示去掉.mat

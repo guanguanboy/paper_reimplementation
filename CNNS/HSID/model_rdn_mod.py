@@ -2,7 +2,10 @@ import torch
 import torch.nn as nn
 import torch.nn.init as init
 import math
+import numpy as np
 
+from PIL import Image
+import matplotlib.pyplot as plt
 '''
 Residual Dense Network for Image Super-Resolution
 
@@ -316,6 +319,28 @@ class DenoiseRDBECA(nn.Module):
         out = self.ecalayer(out)
         return out+x
 
+import scipy.misc
+
+def save_fm_to_png(featuremap, png_name):
+    #print(featuremap.shape)
+    feat_numpy = featuremap.data.cpu().numpy()
+    feat_numpy = feat_numpy.squeeze(0)
+
+    feat_mean = np.mean(feat_numpy, axis=0)
+    feat_mean_rot = np.rot90(feat_mean,k=1, axes=(1,0))
+    im = Image.fromarray(feat_mean_rot*255).convert('RGB')
+    imsave_path = './data/feat_maps/' + png_name + '.png'
+    im.save(imsave_path)
+    imsave_path = './data/feat_maps/' + png_name + 'numpy.png'
+
+    plt.imsave(imsave_path, feat_mean_rot,cmap="gray")
+    #plt.imshow(feat_mean_rot)
+    #plt.show()    
+    imsave_path = './data/feat_maps/' + png_name + 'misc.png'
+
+    #scipy.misc.imsave(imsave_path, feat_mean_rot)
+
+
 class DenoiseRDN_CustomECA(nn.Module):
     def __init__(self,channel,growth_rate, conv_number, rdb_count):
         super(DenoiseRDN_CustomECA,self).__init__()
@@ -333,16 +358,19 @@ class DenoiseRDN_CustomECA(nn.Module):
             )
 
     def forward(self,x):
-
+        #save_fm_to_png(x, 'pre_EAB')
         RDBs_out = []
         for i in range(self.rdb_count):
             x = self.rdbModuleList[i](x)
             RDBs_out.append(x)
+            #save_fm_to_png(x, 'EAB' + str(i))
+
 
         f_D = torch.cat(RDBs_out,1)
 
         f_1x1 = self.GFF1(f_D)
         #f_gf = self.GFF2(f_1x1)
+        #save_fm_to_png(f_1x1, 'after_EAB')
         return f_1x1
 
 class DenoiseRDBWithoutECA(nn.Module):

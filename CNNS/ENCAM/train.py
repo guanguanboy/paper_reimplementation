@@ -122,7 +122,6 @@ def train_model_residual_lowlight():
             hsid_optimizer.zero_grad()
             #denoised_img = net(noisy, cubic)
             #loss = loss_fuction(denoised_img, label)
-
             residual = net(noisy, cubic)
             loss = loss_fuction(residual, label-noisy)
 

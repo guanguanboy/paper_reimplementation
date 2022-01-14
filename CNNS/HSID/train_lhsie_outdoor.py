@@ -2,7 +2,7 @@ from matplotlib.pyplot import axis, imshow
 
 import os
 #os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-#os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 import torch
 import torch.nn as nn
@@ -108,7 +108,7 @@ def train_model_residual_lowlight_rdn():
     band_num = len(test_dataloader)
     denoised_hsi = np.zeros((width, height, band_num))
 
-    save_model_path = './checkpoints/lhsie_outdoor_patchsize64_batchsize128_redisualblock_2'
+    save_model_path = './checkpoints/lhsie_outdoor_patchsize64_standard_step_lr_60'
     if not os.path.exists(save_model_path):
         os.mkdir(save_model_path)
 
@@ -122,7 +122,7 @@ def train_model_residual_lowlight_rdn():
     #创建优化器
     #hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE, betas=(0.9, 0,999))
     hsid_optimizer = optim.Adam(net.parameters(), lr=INIT_LEARNING_RATE)
-    scheduler = MultiStepLR(hsid_optimizer, milestones=[200,400], gamma=0.5)
+    scheduler = MultiStepLR(hsid_optimizer, milestones=[100, 160, 220, 280, 340, 400], gamma=0.5)
 
     #定义loss 函数
     #criterion = nn.MSELoss()
@@ -159,7 +159,7 @@ def train_model_residual_lowlight_rdn():
     best_iter = 0
     if not is_resume:
         start_epoch = 1
-    num_epoch = 200
+    num_epoch = 600
 
     mpsnr_list = []
     for epoch in range(start_epoch, num_epoch+1):
@@ -184,7 +184,7 @@ def train_model_residual_lowlight_rdn():
 
             residual = net(noisy, cubic)
             alpha = 0.8
-            loss = recon_criterion(residual, label-noisy)
+            loss = recon_criterion(residual, label)
             #loss = alpha*recon_criterion(residual, label-noisy) + (1-alpha)*loss_function_mse(residual, label-noisy)
             #loss = recon_criterion(residual, label-noisy)
             loss.backward() # calcu gradient
@@ -231,7 +231,7 @@ def train_model_residual_lowlight_rdn():
             with torch.no_grad():
 
                 residual = net(noisy_test, cubic_test)
-                denoised_band = noisy_test + residual
+                denoised_band = residual
                 
                 denoised_band_numpy = denoised_band.cpu().numpy().astype(np.float32)
                 denoised_band_numpy = np.squeeze(denoised_band_numpy)

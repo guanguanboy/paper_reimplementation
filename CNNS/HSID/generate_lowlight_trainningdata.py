@@ -24,9 +24,12 @@ k = 12
 count = 0
 
 #save_path = './data/train_lowlight/'
-save_path = './data/train_lowlight_patchsize64_train10_k12/'
-if not os.path.exists(save_path):
-    os.mkdir(save_path)
+#save_path = './data/train_lowlight_patchsize64_train10_k12/'
+#if not os.path.exists(save_path):
+    #os.mkdir(save_path)
+save_path_reverse = './data/train_lowlight_patchsize64_k12_reverse/'
+if not os.path.exists(save_path_reverse):
+    os.mkdir(save_path_reverse)
 
 def gen_patches(numpy_data_noisy,numpy_data_label, channel_is):
     # get multiscale patches from a single image
@@ -57,7 +60,7 @@ def gen_patches(numpy_data_noisy,numpy_data_label, channel_is):
                     #print(y.shape)
                 global count
                 name =  f'{count}.mat'
-                file_name = save_path + name
+                file_name = save_path_reverse + name
                 count = count + 1
                 scio.savemat(file_name, {'patch': noisy, 'cubic': noisy_cubic, 'label': label})  
 
@@ -65,8 +68,8 @@ def gen_patches(numpy_data_noisy,numpy_data_label, channel_is):
     #return patches,cubic_paches
 
 
-noisy_mat_dir = '/data2/liguanlin/codes/paper_reimplementation/CNNS/HSID/data/lowlight_origin/train10/1ms'
-label_mat_dir = '/data2/liguanlin/codes/paper_reimplementation/CNNS/HSID/data/lowlight_origin/train10/15ms'
+noisy_mat_dir = '/data2/liguanlin/codes/paper_reimplementation/CNNS/HSID/data/lowlight_origin/train/1ms'
+label_mat_dir = '/data2/liguanlin/codes/paper_reimplementation/CNNS/HSID/data/lowlight_origin/train/15ms'
 noisy_mat_list = os.listdir(noisy_mat_dir)
 label_mat_list = os.listdir(label_mat_dir)
 noisy_mat_list.sort()
@@ -89,6 +92,6 @@ for i in range(mat_count):
     noisy=noisy.transpose((2,0,1)) #将通道维放在最前面
     label=label.transpose((2,0,1)) #将通道维放在最前面
 
-    gen_patches(noisy, label, channels)
-
+    #gen_patches(noisy, label, channels)
+    gen_patches(label, noisy, channels) #for reverse dataset generation
 #train=scio.loadmat('./data/origin/wdc_normalized.mat')['wdc_normalized'] #原始大小：1280*307*191

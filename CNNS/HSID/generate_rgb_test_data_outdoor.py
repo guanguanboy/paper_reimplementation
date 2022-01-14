@@ -20,51 +20,58 @@ import numpy as np
 from torch.utils.data import Dataset
 import torch
 import matplotlib.pyplot as plt
+from skimage import io
 
-k = 12
+k = 4
 
 #save_path = './data/test_lowlight/cubic/'
-save_path = './data/test_lowli_outdoor_downsampled_k12/'
+save_path = './data/test_rgb_lowlight_outdoor/'
 if not os.path.exists(save_path):
     os.mkdir(save_path)
 
-def gen_test_patches(numpy_data,label, channel_is, mat_name):
+low_dir = 'low/'
+high_dir = 'high/'
+
+
+def gen_test_patches(numpy_data_noisy,numpy_data_label, channel_is, mat_name):
     # get multiscale patches from a single image
-    channels=numpy_data.shape[0]
+    count = 0
+
+    # get multiscale patches from a single image
+    channels=numpy_data_noisy.shape[0]
 
     print(channels)
 
     file_path = os.path.join(save_path, mat_name)
     if not os.path.exists(file_path):
         os.mkdir(file_path)
-    count = 0
+
+    h, w = numpy_data_noisy.shape[1],numpy_data_noisy.shape[2]
+
     for channel_i in range(channel_is):
+        
+        noisy = numpy_data_noisy[channel_i,:, :]
+        label = numpy_data_label[channel_i,:, :]
+        noisy_int8 = (noisy*255).astype(np.uint8)
+        label_int8 = (label*255).astype(np.uint8)
+        noisy_rgb = np.stack((noisy_int8, noisy_int8, noisy_int8), axis=2)
+        label_rgb = np.stack((label_int8, label_int8, label_int8), axis=2)
 
-        x = numpy_data[channel_i,:, :]
-        x_label = label[channel_i,:, :]
-        #print(x.shape)
-        if channel_i < k:
-            # print(channel_i)
-            y = numpy_data[0:(k*2), :, :]
-            # print(y.shape)
-        elif channel_i < channels - k:
-            # print(channel_i)
-            y = np.concatenate((numpy_data[channel_i - k:channel_i, :, :],
-                                numpy_data[channel_i + 1:channel_i + k + 1, :, :]))
-            # print(y.shape)
-        else:
-            # print(channel_i)
-            y = numpy_data[channel_is - (k*2):channel_is, :, :]
-            #print(y.shape)
-
-        name =  f'{count}.mat'
-        file_name = os.path.join(file_path, name)
+        name =  f'{count}.png'
         count = count + 1
-        scio.savemat(file_name, {'noisy': x, 'cubic': y, 'label': x_label})  
 
-channels= 64  # 191 channels
+        noisy_file_path = os.path.join(file_path, low_dir)
+        if not os.path.exists(noisy_file_path):
+            os.mkdir(noisy_file_path)
+        noisy_file_name = os.path.join(noisy_file_path, name)
 
-#gen_test_patches(test, label, channels)
+        label_file_name = os.path.join(file_path, high_dir)
+        if not os.path.exists(label_file_name):
+            os.mkdir(label_file_name)
+        label_file_name = os.path.join(label_file_name, name)
+
+        io.imsave(noisy_file_name, noisy_rgb)
+        io.imsave(label_file_name, label_rgb)
 
 
 noisy_mat_dir = './data/lowlight_origin_outdoor_standard/test/1ms'
@@ -88,12 +95,7 @@ for i in range(mat_count):
 
     #print(noisy.shape) #(390, 512, 64) height, width, bandnum
     #print(label.shape)
-    down_noisy = noisy[::4,::4,::1]
-    print(down_noisy.shape)
-    down_label = label[::4,::4,::1]
-    print(down_label.shape)
-
-    noisy=down_noisy.transpose((2,0,1)) #将通道维放在最前面
-    label=down_label.transpose((2,0,1)) #将通道维放在最前面
+    noisy=noisy.transpose((2,0,1)) #将通道维放在最前面
+    label=label.transpose((2,0,1)) #将通道维放在最前面
     mat_name = noisy_mat_list[i]
     gen_test_patches(noisy, label, channels, mat_name[:-4])# 这里的-4表示去掉.mat

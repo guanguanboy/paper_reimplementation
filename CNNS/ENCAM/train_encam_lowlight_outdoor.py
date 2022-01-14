@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from model import ENCAM
+from model import ENCAM,ENCAM_Outdoor
 import torch.optim as optim
 from tqdm import tqdm
 from torch.optim.lr_scheduler import MultiStepLR
@@ -66,11 +66,11 @@ def train_model_residual_lowlight():
     #加载测试label数据
     mat_src_path = '../HSID/data/lowlight_origin_outdoor_standard/test/15ms/007_2_2021-01-20_018.mat'
     test_label_hsi = scio.loadmat(mat_src_path)['label_normalized_hsi']
-
+    test_label_hsi = test_label_hsi[::4,::4,::1]
      #加载测试数据
     batch_size = 1
     #test_data_dir = './data/test_lowlight/cuk12/'
-    test_data_dir = '../HSID/data/test_lowli_outdoor_k12/007_2_2021-01-20_018/'
+    test_data_dir = '../HSID/data/test_lowli_outdoor_downsampled_k12/007_2_2021-01-20_018/'
 
     test_set = HsiCubicLowlightTestDataset(test_data_dir)
     test_dataloader = DataLoader(dataset=test_set, batch_size=batch_size, shuffle=False)
@@ -80,13 +80,13 @@ def train_model_residual_lowlight():
     band_num = len(test_dataloader)
     denoised_hsi = np.zeros((width, height, band_num))
 
-    save_model_path = '../HSID/checkpoints/encam_outdoor'
+    save_model_path = '../HSID/checkpoints/encam_outdoor2'
     if not os.path.exists(save_model_path):
         os.mkdir(save_model_path)
 
 
     #创建模型
-    net = ENCAM()
+    net = ENCAM_Outdoor()
     #init_params(net) #创建encam时，已经通过self._initialize_weights()进行了初始化
     net = net.to(device)
     #net = nn.DataParallel(net)
@@ -135,7 +135,7 @@ def train_model_residual_lowlight():
             #loss = loss_fuction(denoised_img, label)
 
             residual = net(noisy, cubic)
-            loss = loss_fuction(residual, label-noisy)
+            loss = loss_fuction(noisy + residual, label)
 
             loss.backward() # calcu gradient
             hsid_optimizer.step() # update parameter
@@ -184,15 +184,15 @@ def train_model_residual_lowlight():
                 #对图像下采样,这里做下采样的原因是，ENCAM模型训练的时候占用的GPU显存太大，导致没有办法对测试图像进行预测
                 #noisy_permute = noisy.permute(0, 3,1,2)#交换第一维和第三维 ，shape: batch_size, band_num, height, width 
                 #label_permute = label.permute(0, 3, 1, 2)
-                noisy_test_down = F.interpolate(noisy_test, scale_factor=0.25, mode='bilinear')
-                cubic_test_squeeze = torch.squeeze(cubic_test, 0)
-                cubic_test_down = F.interpolate(cubic_test_squeeze, scale_factor=0.25, mode='bilinear')
-                cubic_test_down_unsqueeze = torch.unsqueeze(cubic_test_down, 0)
-                residual = net(noisy_test_down, cubic_test_down_unsqueeze)
-                denoised_band = noisy_test_down + residual
+                #noisy_test_down = F.interpolate(noisy_test, scale_factor=0.25, mode='bilinear')
+                #cubic_test_squeeze = torch.squeeze(cubic_test, 0)
+                #cubic_test_down = F.interpolate(cubic_test_squeeze, scale_factor=0.25, mode='bilinear')
+                #cubic_test_down_unsqueeze = torch.unsqueeze(cubic_test_down, 0)
+                residual = net(noisy_test, cubic_test)
+                denoised_band = noisy_test + residual
 
                 #图像上采样
-                denoised_band = F.interpolate(denoised_band, scale_factor=4, mode='bilinear')
+                #enoised_band = F.interpolate(denoised_band, scale_factor=4, mode='bilinear')
                 
                 denoised_band_numpy = denoised_band.cpu().numpy().astype(np.float32)
                 denoised_band_numpy = np.squeeze(denoised_band_numpy)

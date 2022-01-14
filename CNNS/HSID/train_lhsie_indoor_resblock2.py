@@ -2,7 +2,7 @@ from matplotlib.pyplot import axis, imshow
 
 import os
 #os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 import torch
 import torch.nn as nn
@@ -30,7 +30,7 @@ from utils import get_adjacent_spectral_bands
 from model_rdn import HSIRDN,HSIRDNMOD,HSIRDNSE,HSIRDNECA,HSIRDNWithoutECA
 import model_utils
 import dir_utils
-from hsi_lptn_model import HSIRDNECA_LPTN,HSIRDNECA_LPTN_FUSE,HSIRDNECA_LPTN_FUSE_CONV,HSIRDNECA_LPTN_FUSE_CONV_Without_High
+from hsi_lptn_model import HSIRDNECA_LPTN,HSIRDNECA_LPTN_FUSE,HSIRDNECA_LPTN_FUSE_CONV, HSIRDNECA_LPTN_FUSE_CONV_ResBlock2
 
 #设置超参数
 NUM_EPOCHS =100
@@ -108,12 +108,12 @@ def train_model_residual_lowlight_rdn():
     band_num = len(test_dataloader)
     denoised_hsi = np.zeros((width, height, band_num))
 
-    save_model_path = './checkpoints/hsirnd_indoor_lptn_fuse_without_high_branch'
+    save_model_path = './checkpoints/lhsie_indoor_resblock131'
     if not os.path.exists(save_model_path):
         os.mkdir(save_model_path)
 
     #创建模型
-    net = HSIRDNECA_LPTN_FUSE_CONV_Without_High(K)
+    net = HSIRDNECA_LPTN_FUSE_CONV_ResBlock2(K)
     init_params(net)
     device_ids = [0, 1]
     #net = nn.DataParallel(net).to(device)

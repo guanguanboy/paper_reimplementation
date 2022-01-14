@@ -19,7 +19,7 @@ K = 36
 from hsidataset import HsiCubicLowlightTestDataset
 from model_hsid_origin import HSID_origin
 from model_rdn import HSIRDN, HSIRDNDeep,HSIRDNMOD,HSIRDNECA,HSIRDNSE,HSIRDNCBAM,HSIRDNCoordAtt
-from hsi_lptn_model import HSIRDNECA_LPTN_FUSE_CONV
+from hsi_lptn_model import HSIRDNECA_LPTN_FUSE_CONV,HSIRDNECA_LPTN_FUSE_CONV_OutDoor_Try
 
 def predict_lowlight_hsid_origin():
     
@@ -111,23 +111,23 @@ def predict_lowlight_hsid_origin_outdoor_all_data():
     
     #加载模型
     #hsid = HSID(36)
-    hsid = HSIRDNECA_LPTN_FUSE_CONV(24)
+    hsid = HSIRDNECA_LPTN_FUSE_CONV_OutDoor_Try(24)
     #hsid = nn.DataParallel(hsid).to(DEVICE)
     hsid = hsid.to(DEVICE)
     #device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
-    save_model_path = './checkpoints/lhsie_outdoor_patchsize64'
+    save_model_path = './checkpoints/lhsie_outdoor_patchsize64_try233_600'
 
     hsid.load_state_dict(torch.load(save_model_path + '/hsid_rdn_eca_l1_loss_600epoch_patchsize32_best.pth', map_location='cuda:0')['gen'])
 
     #加载测试label数据
-    mat_src_path = './data/lowlight_origin_outdoor_standard/test/15ms/007_2_2021-01-19_050.mat'
+    mat_src_path = './data/lowlight_origin_outdoor_standard/test/15ms/007_2_2021-01-20_024.mat'
     test_label_hsi = scio.loadmat(mat_src_path)['label_normalized_hsi']
 
     #加载测试数据
     batch_size = 1
     #test_data_dir = './data/test_lowlight/cuk12/'
-    test_data_dir = './data/test_lowli_outdoor_k12/007_2_2021-01-19_050/'
+    test_data_dir = './data/test_lowli_outdoor_k12/007_2_2021-01-20_024/'
 
     test_set = HsiCubicLowlightTestDataset(test_data_dir)
     test_dataloader = DataLoader(dataset=test_set, batch_size=batch_size, shuffle=False)
@@ -168,7 +168,7 @@ def predict_lowlight_hsid_origin_outdoor_all_data():
         with torch.no_grad():
 
             residual = hsid(noisy_test, cubic_test)
-            denoised_band = noisy_test + residual
+            denoised_band = residual
             
             denoised_band_numpy = denoised_band.cpu().numpy().astype(np.float32)
             denoised_band_numpy = np.squeeze(denoised_band_numpy)
@@ -180,7 +180,7 @@ def predict_lowlight_hsid_origin_outdoor_all_data():
         psnr = PSNR(denoised_band_numpy, test_label_current_band)
         psnr_list.append(psnr)
     #mdict是python字典类型，value值需要是一个numpy数组
-    scio.savemat(test_result_output_path + 'result.mat', {'denoised': denoised_hsi})
+    scio.savemat(test_result_output_path + 'lhsie_outdoor_result.mat', {'denoised': denoised_hsi})
 
     #计算pnsr和ssim
     mpsnr = np.mean(psnr_list)

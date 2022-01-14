@@ -101,7 +101,7 @@ def train_model_residual_lowlight():
     band_num = len(test_dataloader)
     denoised_hsi = np.zeros((width, height, band_num))
 
-    save_model_path = './checkpoints/hsid3d_origin_patchsize64_l2'
+    save_model_path = './checkpoints/hsid3d_origin_patchsize64_l2_try2'
     if not os.path.exists(save_model_path):
         os.mkdir(save_model_path)
 
@@ -219,7 +219,7 @@ def train_model_residual_lowlight():
             psnr_list.append(psnr)
 
         mpsnr = np.mean(psnr_list)
-        #mpsnr_list.append(mpsnr)
+        mpsnr_list.append(mpsnr)
 
         denoised_hsi_trans = denoised_hsi.transpose(2,0,1)
         test_label_hsi_trans = test_label_hsi.transpose(2, 0, 1)
