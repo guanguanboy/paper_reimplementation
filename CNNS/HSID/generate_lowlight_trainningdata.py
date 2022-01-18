@@ -20,14 +20,14 @@ from torch.utils.data import Dataset
 import torch
 patch_size, stride = 64, 64
 
-k = 12
+k = 9
 count = 0
 
 #save_path = './data/train_lowlight/'
 #save_path = './data/train_lowlight_patchsize64_train10_k12/'
 #if not os.path.exists(save_path):
     #os.mkdir(save_path)
-save_path_reverse = './data/train_lowlight_patchsize64_k12_reverse/'
+save_path_reverse = './data/train_lowlight_patchsize64_k09/'
 if not os.path.exists(save_path_reverse):
     os.mkdir(save_path_reverse)
 
@@ -92,6 +92,6 @@ for i in range(mat_count):
     noisy=noisy.transpose((2,0,1)) #将通道维放在最前面
     label=label.transpose((2,0,1)) #将通道维放在最前面
 
-    #gen_patches(noisy, label, channels)
-    gen_patches(label, noisy, channels) #for reverse dataset generation
+    gen_patches(noisy, label, channels)
+    #gen_patches(label, noisy, channels) #for reverse dataset generation
 #train=scio.loadmat('./data/origin/wdc_normalized.mat')['wdc_normalized'] #原始大小：1280*307*191

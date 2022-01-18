@@ -21,14 +21,14 @@ from torch.utils.data import Dataset
 import torch
 import matplotlib.pyplot as plt
 
-k = 12
+k = 9
 
 #save_path = './data/test_lowlight/cubic/'
 #save_path = './data/test_lowlight/cuk04/'
 #if not os.path.exists(save_path):
     #os.mkdir(save_path)
 
-save_path = './data/test_lowlight/cuk12_reverse/'
+save_path = './data/test_lowlight/cuk09/'
 if not os.path.exists(save_path):
     os.mkdir(save_path)
 
@@ -75,5 +75,5 @@ def gen_test_patches(numpy_data,label, channel_is):
 
 channels= 64  # 191 channels
 
-#gen_test_patches(test, label, channels)
-gen_test_patches(label, test, channels) # for reversed dataset generation
+gen_test_patches(test, label, channels)
+#gen_test_patches(label, test, channels) # for reversed dataset generation
