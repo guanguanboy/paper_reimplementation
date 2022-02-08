@@ -21,18 +21,18 @@ from torch.utils.data import Dataset
 import torch
 import matplotlib.pyplot as plt
 
-k = 9
+k = 12
 
 #save_path = './data/test_lowlight/cubic/'
 #save_path = './data/test_lowlight/cuk04/'
 #if not os.path.exists(save_path):
     #os.mkdir(save_path)
 
-save_path = './data/test_lowlight/cuk09/'
+save_path = './data/test_lowlight/si200/'
 if not os.path.exists(save_path):
     os.mkdir(save_path)
 
-mat_src_path = './data/test_lowlight/origin/soup_bigcorn_orange_1ms.mat'
+mat_src_path = './data/test_lowlight/origin/soup_bigcorn_orange_200.mat'
 
 test = scio.loadmat(mat_src_path)['lowlight']
 label = scio.loadmat(mat_src_path)['label']

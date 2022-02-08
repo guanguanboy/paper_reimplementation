@@ -2,7 +2,7 @@ from matplotlib.pyplot import axis, imshow
 
 import os
 #os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 import torch
 import torch.nn as nn
@@ -30,11 +30,10 @@ from utils import get_adjacent_spectral_bands
 from model_rdn import HSIRDN,HSIRDNMOD,HSIRDNSE,HSIRDNECA,HSIRDNWithoutECA
 import model_utils
 import dir_utils
-from hsi_lptn_model import HSIRDNECA_LPTN,HSIRDNECA_LPTN_FUSE,HSIRDNECA_LPTN_FUSE_CONV,HSIRDNECA_LPTN_FUSE_CONV_OutDoor_Try
-
+from hsi_lptn_model import HSIRDNECA_LPTN,HSIRDNECA_LPTN_FUSE,HSIRDNECA_LPTN_FUSE_CONV,HSIRDNECA_LPTN_FUSE_CONV_Without_High,HSIRDNECA_LPTN_FUSE_CONV_Without_High_MSFE_ECA,HSIRDNECA_LPTN_FUSE_CONV_Ablation4
 
 #设置超参数
-NUM_EPOCHS =600
+NUM_EPOCHS =100
 BATCH_SIZE = 256
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 INIT_LEARNING_RATE = 0.0002
@@ -80,7 +79,7 @@ def train_model_residual_lowlight_rdn():
     device = DEVICE
     print(device)
     #准备数据
-    train_set = HsiCubicTrainDataset('./data/train_lowli_outdoor_standard_patchsize64_k12/')
+    train_set = HsiCubicTrainDataset('./data/train_lowlight_patchsize64_k12/')
     #print('trainset32 training example:', len(train_set32))
     #train_set = HsiCubicTrainDataset('./data/train_lowlight/')
 
@@ -93,13 +92,13 @@ def train_model_residual_lowlight_rdn():
     train_loader = DataLoader(dataset=train_set, batch_size=BATCH_SIZE, shuffle=True)
     
     #加载测试label数据
-    mat_src_path = './data/lowlight_origin_outdoor_standard/test/15ms/007_2_2021-01-20_024.mat'
-    test_label_hsi = scio.loadmat(mat_src_path)['label_normalized_hsi']
+    mat_src_path = './data/test_lowlight/origin/soup_bigcorn_orange_1ms.mat'
+    test_label_hsi = scio.loadmat(mat_src_path)['label']
 
     #加载测试数据
     batch_size = 1
     #test_data_dir = './data/test_lowlight/cuk12/'
-    test_data_dir = './data/test_lowli_outdoor_k12/007_2_2021-01-20_024/'
+    test_data_dir = './data/test_lowlight/cuk12/'
 
     test_set = HsiCubicLowlightTestDataset(test_data_dir)
     test_dataloader = DataLoader(dataset=test_set, batch_size=batch_size, shuffle=False)
@@ -109,12 +108,12 @@ def train_model_residual_lowlight_rdn():
     band_num = len(test_dataloader)
     denoised_hsi = np.zeros((width, height, band_num))
 
-    save_model_path = './checkpoints/lhsie_outdoor_patchsize64_without_residual'
+    save_model_path = './checkpoints/hsie_ablation/conv_num_2'
     if not os.path.exists(save_model_path):
         os.mkdir(save_model_path)
 
     #创建模型
-    net = HSIRDNECA_LPTN_FUSE_CONV_OutDoor_Try(K)
+    net = HSIRDNECA_LPTN_FUSE_CONV_Ablation4(k=K)
     init_params(net)
     device_ids = [0, 1]
     #net = nn.DataParallel(net).to(device)

@@ -112,12 +112,13 @@ def predict_lowlight_hsid_origin_outdoor_all_data():
     #加载模型
     #hsid = HSID(36)
     hsid = HSIRDNECA_LPTN_FUSE_CONV_OutDoor_Try(24)
+    #hsid = HSIRDNECA_LPTN_FUSE_CONV(24)
     #hsid = nn.DataParallel(hsid).to(DEVICE)
     hsid = hsid.to(DEVICE)
     #device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
-    save_model_path = './checkpoints/lhsie_outdoor_patchsize64_try233_600'
-
+    #save_model_path = './checkpoints/lhsie_outdoor_patchsize64_try233_600'
+    save_model_path = './checkpoints/lhsie_outdoor_patchsize64_without_residual'
     hsid.load_state_dict(torch.load(save_model_path + '/hsid_rdn_eca_l1_loss_600epoch_patchsize32_best.pth', map_location='cuda:0')['gen'])
 
     #加载测试label数据
@@ -139,7 +140,7 @@ def predict_lowlight_hsid_origin_outdoor_all_data():
 
 
     #指定结果输出路径
-    test_result_output_path = './data/testresult/'
+    test_result_output_path = './data/testresult/outdoor/'
     if not os.path.exists(test_result_output_path):
         os.makedirs(test_result_output_path)
 

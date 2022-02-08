@@ -30,7 +30,7 @@ from utils import get_adjacent_spectral_bands
 from model_rdn import HSIRDN,HSIRDNMOD,HSIRDNSE,HSIRDNECA,HSIRDNWithoutECA
 import model_utils
 import dir_utils
-from hsi_lptn_model import HSIRDNECA_LPTN,HSIRDNECA_LPTN_FUSE,HSIRDNECA_LPTN_FUSE_CONV,HSIRDNECA_LPTN_FUSE_CONV_Without_High,HSIRDNECA_LPTN_FUSE_CONV_Without_High_MSFE,HSIRDNECA_LPTN_FUSE_CONV_Ablation1
+from hsi_lptn_model import HSIRDNECA_LPTN,HSIRDNECA_LPTN_FUSE,HSIRDNECA_LPTN_FUSE_CONV,HSIRDNECA_LPTN_FUSE_CONV_Without_High,HSIRDNECA_LPTN_FUSE_CONV_Without_High_MSFE,HSIRDNECA_LPTN_FUSE_CONV_Ablation1,HSIRDNECA_LPTN_FUSE_CONV_Ablation2
 
 #设置超参数
 NUM_EPOCHS =100
@@ -108,7 +108,7 @@ def train_model_residual_lowlight_rdn():
     band_num = len(test_dataloader)
     denoised_hsi = np.zeros((width, height, band_num))
 
-    save_model_path = './checkpoints/hsie_ablation/eab_number3'
+    save_model_path = './checkpoints/hsie_ablation/conv_num_6'
     if not os.path.exists(save_model_path):
         os.mkdir(save_model_path)
 

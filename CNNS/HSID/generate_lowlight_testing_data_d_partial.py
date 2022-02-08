@@ -21,22 +21,33 @@ from torch.utils.data import Dataset
 import torch
 import matplotlib.pyplot as plt
 
-k = 12
+k = 18
 
 #save_path = './data/test_lowlight/cubic/'
-save_path = './data/test_lowlight_outdoor/'
+#save_path = './data/test_lowlight/cuk04/'
+#if not os.path.exists(save_path):
+    #os.mkdir(save_path)
+
+save_path = './data/test_lowlight/cuk18_partial/'
 if not os.path.exists(save_path):
     os.mkdir(save_path)
 
-def gen_test_patches(numpy_data,label, channel_is, mat_name):
+mat_src_path = './data/test_lowlight/origin/soup_bigcorn_orange_1ms.mat'
+
+test = scio.loadmat(mat_src_path)['lowlight']
+label = scio.loadmat(mat_src_path)['label']
+#test=np.load('./data/origin/test_washington.npy')
+test=test.transpose((2,0,1)) #将通道维放在最前面：191*1280*307
+#plt.imshow(test[50,:,:])
+
+label=label.transpose((2,0,1)) #将通道维放在最前面：191*1280*307
+
+def gen_test_patches(numpy_data,label, channel_is):
     # get multiscale patches from a single image
     channels=numpy_data.shape[0]
 
     print(channels)
 
-    file_path = os.path.join(save_path, mat_name)
-    if not os.path.exists(file_path):
-        os.mkdir(file_path)
     count = 0
     for channel_i in range(channel_is):
 
@@ -47,53 +58,26 @@ def gen_test_patches(numpy_data,label, channel_is, mat_name):
             # print(channel_i)
             y = numpy_data[0:(k*2), :, :]
             # print(y.shape)
+            label_cubic = label[0:(k*2), :, :]
         elif channel_i < channels - k:
             # print(channel_i)
             y = np.concatenate((numpy_data[channel_i - k:channel_i, :, :],
                                 numpy_data[channel_i + 1:channel_i + k + 1, :, :]))
             # print(y.shape)
+            label_cubic = np.concatenate((label[channel_i - k:channel_i, :, :],
+                                label[channel_i + 1:channel_i + k + 1, :, :]))
         else:
             # print(channel_i)
             y = numpy_data[channel_is - (k*2):channel_is, :, :]
             #print(y.shape)
+            label_cubic = label[channel_is - (k*2):channel_is, :, :]
 
         name =  f'{count}.mat'
-        file_name = os.path.join(file_path, name)
+        file_name = save_path + name
         count = count + 1
-        scio.savemat(file_name, {'noisy': x, 'cubic': y, 'label': x_label})  
+        scio.savemat(file_name, {'patch': x, 'cubic': y, 'label': x_label, 'label_cubic': label_cubic})  
 
 channels= 64  # 191 channels
 
-#gen_test_patches(test, label, channels)
-
-
-noisy_mat_dir = './data/lowlight_origin_outdoor_standard/test_resized/1ms'
-label_mat_dir = './data/lowlight_origin_outdoor_standard/test_resized/15ms'
-noisy_mat_list = os.listdir(noisy_mat_dir)
-label_mat_list = os.listdir(label_mat_dir)
-noisy_mat_list.sort()
-label_mat_list.sort()
-
-print(noisy_mat_list)
-print(label_mat_list)
-
-mat_count = len(noisy_mat_list)
-
-channels= 64  # 191 channels
-
-
-for i in range(mat_count):
-    noisy = scio.loadmat(noisy_mat_dir + '/' + noisy_mat_list[i])['lowlight_normalized_hsi']
-    label = scio.loadmat(label_mat_dir + '/' + label_mat_list[i])['label_normalized_hsi']
-
-    #print(noisy.shape) #(390, 512, 64) height, width, bandnum
-    #print(label.shape)
-    #down_noisy = noisy[::4,::4,::1]
-    #print(down_noisy.shape)
-    #down_label = label[::4,::4,::1]
-    #print(down_label.shape)
-
-    noisy=noisy.transpose((2,0,1)) #将通道维放在最前面
-    label=label.transpose((2,0,1)) #将通道维放在最前面
-    mat_name = noisy_mat_list[i]
-    gen_test_patches(noisy, label, channels, mat_name[:-4])# 这里的-4表示去掉.mat
+gen_test_patches(test, label, channels)
+#gen_test_patches(label, test, channels) # for reversed dataset generation
